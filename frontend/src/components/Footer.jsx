@@ -6,7 +6,7 @@ const Footer = () => {
     <footer style={styles.footer}>
       <div style={styles.container}>
         {/* GVP-IT Info */}
-        <p style={styles.info}>© 2024 GVP-IT. All Rights Reserved.</p>
+        <p style={styles.info}>© 2024 GVP-IT. All Rights Reserved</p>
 
         {/* Social Media Links */}
         <div style={styles.socialLinks}>
