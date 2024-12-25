@@ -5,6 +5,12 @@ import Header from './components/Header';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
+import Signup from './pages/SignUp';
+import { useNavigate } from 'react-router-dom';
+import { User } from 'lucide-react';
+
 
 const App = () => {
     const isAuthenticated = localStorage.getItem('authToken');
@@ -13,8 +19,10 @@ const App = () => {
     <Router>
       <Header />
       <Routes>
-        <Route path="/" element={isAuthenticated ? <Dashboard /> : <LandingPage />} />
-        <Route path="/signup" element={<SignUp />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/edit-profile" element={<EditProfile />} />
+        <Route path="/signUp" element={<Signup />} />
       </Routes>
       <Footer />
     </Router>

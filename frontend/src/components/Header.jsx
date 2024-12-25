@@ -1,6 +1,7 @@
 // Header.js
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { User } from 'lucide-react'; // Importing profile icon
 
 const Header = () => {
   const navigate = useNavigate(); // Hook for navigation
@@ -10,6 +11,12 @@ const Header = () => {
     // Navigate to /signup when the button is clicked
     navigate('/signup');
   };
+
+  const handleProfileClick = () => {
+    // Navigate to /profile when the profile icon is clicked
+    navigate('/profile');
+  };
+
   return (
     <header style={styles.header}>
       {/* Dummy Logo */}
@@ -20,11 +27,19 @@ const Header = () => {
       {/* Heading */}
       <h1 style={styles.heading}>GVP-IT</h1>
 
-      {/* Additional Tagline */}
-      <p style={styles.tagline}>Empowering Education</p>
-       {!isAuthenticated && (<button onClick={handleRegisterLogin} style={styles.button}>
-        Register / Login
-      </button>)}
+      {/* Profile Icon */}
+      {isAuthenticated ? (
+        <User 
+          size={24} 
+          color="#007bff" 
+          style={styles.profileIcon} 
+          onClick={handleProfileClick} 
+        />
+      ) : (
+        <button onClick={handleRegisterLogin} style={styles.button}>
+          Register / Login
+        </button>
+      )}
     </header>
   );
 };
@@ -55,10 +70,8 @@ const styles = {
     fontSize: '24px',
     margin: 0,
   },
-  tagline: {
-    fontSize: '14px',
-    color: '#666',
-    margin: 0,
+  profileIcon: {
+    cursor: 'pointer',
   },
   button: {
     padding: '10px 20px',
