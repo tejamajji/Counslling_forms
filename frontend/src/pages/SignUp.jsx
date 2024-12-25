@@ -32,7 +32,7 @@ const Auth = () => {
     }, 3000); // Change image every 3 seconds
 
     return () => clearInterval(interval);
-  }, [images.length]);
+  },);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
