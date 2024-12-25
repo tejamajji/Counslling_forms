@@ -73,8 +73,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 <p align="center">
       <a href="https://github.com/VIZAGBOYS/Counslling_forms/graphs/contributors">
-        <img src="https://api.vaunt.dev/v1/github/entities/VIZAGBOYS/repositories/Counslling_forms/contributors?format=svg&limit=54" width="700" height="250" />
-      </a>
+       <img src="https://api.vaunt.dev/v1/github/entities/VIZAGBOYS/repositories/Counslling_forms/contributors?format=svg&limit=100" width="700" height="250" />
 </p>
 
 <br>
