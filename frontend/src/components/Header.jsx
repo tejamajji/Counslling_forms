@@ -1,11 +1,20 @@
 // Header.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User } from 'lucide-react'; // Importing profile icon
+import gvplog from '../images/gvplogo.jpg'; // Correct import for the logo
 
 const Header = () => {
   const navigate = useNavigate(); // Hook for navigation
   const isAuthenticated = localStorage.getItem('authToken');
+  const [profilePicture, setProfilePicture] = useState(null);
+
+  useEffect(() => {
+    // Retrieve user profile from localStorage
+    const userProfile = JSON.parse(localStorage.getItem('userProfile'));
+    if (userProfile && userProfile.profilePicture) {
+      setProfilePicture(userProfile.profilePicture); // Set profile picture if available
+    }
+  }, []);
 
   const handleRegisterLogin = () => {
     // Navigate to /signup when the button is clicked
@@ -13,28 +22,40 @@ const Header = () => {
   };
 
   const handleProfileClick = () => {
-    // Navigate to /profile when the profile icon is clicked
+    // Navigate to /profile when the profile image is clicked
     navigate('/profile');
+  };
+
+  const handleLogoClick = () => {
+    // Navigate to the landing page
+    navigate('/');
   };
 
   return (
     <header style={styles.header}>
-      {/* Dummy Logo */}
-      <div style={styles.logoContainer}>
-        <div style={styles.logo}></div>
+      {/* Logo */}
+      <div style={styles.logoContainer} onClick={handleLogoClick}>
+        <img
+          src={gvplog} // Dynamically imported logo
+          alt="GVP Logo"
+          style={styles.logoImage}
+        />
       </div>
 
       {/* Heading */}
-      <h1 style={styles.heading}>GVP-IT</h1>
+      <h1 style={styles.heading}>
+        GAYATRI VIDYAPARISHAD COLLEGE OF ENGINEERING (AUTONOMOUS)
+      </h1>
 
-      {/* Profile Icon */}
+      {/* Profile Image or Register/Login Button */}
       {isAuthenticated ? (
-        <User 
-          size={24} 
-          color="#007bff" 
-          style={styles.profileIcon} 
-          onClick={handleProfileClick} 
-        />
+        <div style={styles.profileContainer} onClick={handleProfileClick}>
+          <img
+            src={profilePicture || 'default-profile.png'} // Fallback to a default image if profile picture is unavailable
+            alt="Profile"
+            style={styles.profileImage}
+          />
+        </div>
       ) : (
         <button onClick={handleRegisterLogin} style={styles.button}>
           Register / Login
@@ -57,21 +78,28 @@ const styles = {
   logoContainer: {
     display: 'flex',
     alignItems: 'center',
+    cursor: 'pointer', // Make it clear that the logo is clickable
   },
-  logo: {
-    width: '40px',
-    height: '40px',
-    backgroundColor: '#007bff',
-    borderRadius: '50%',
+  logoImage: {
+    width: '50px', // Adjust as needed
+    height: '50px', // Adjust as needed
+    objectFit: 'cover', // Maintain aspect ratio
+    borderRadius: '50%', // Optional: Makes the logo circular
     marginRight: '10px',
   },
   heading: {
     fontWeight: 'bold',
-    fontSize: '24px',
+    fontSize: '30px',
     margin: 0,
   },
-  profileIcon: {
-    cursor: 'pointer',
+  profileContainer: {
+    cursor: 'pointer', // Make the profile container clickable
+  },
+  profileImage: {
+    width: '40px', // Adjust as needed
+    height: '40px', // Adjust as needed
+    objectFit: 'cover', // Maintain aspect ratio
+    borderRadius: '50%', // Makes the image circular
   },
   button: {
     padding: '10px 20px',

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './css/SignUp.css'; // Import CSS file
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -8,17 +9,36 @@ const Auth = () => {
     fullName: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
 
   const [error, setError] = useState('');
-  const [isSignUp, setIsSignUp] = useState(true); // Toggle between SignIn and SignUp
+  const [isSignUp, setIsSignUp] = useState(true);
+  const [currentImage, setCurrentImage] = useState(0);
+
+  const images = [
+    "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/18.jpg",
+    "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/19.jpg",
+    "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/20.jpg",
+    "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/21.jpg",
+    "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/22.jpg",
+    "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/23.jpg",
+    // Add more images here
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImage((prevIndex) => (prevIndex + 1) % images.length);
+    }, 3000); // Change image every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [images.length]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: value
+      [name]: value,
     });
   };
 
@@ -49,7 +69,6 @@ const Auth = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Save auth token and redirect
         localStorage.setItem('authToken', data.token);
         navigate('/');
       } else {
@@ -61,22 +80,20 @@ const Auth = () => {
   };
 
   return (
-    <div style={styles.container}>
-      {/* Left Side Image */}
-      <div style={styles.imageContainer}>
+    <div className="container">
+      <div className="imageContainer">
         <img
-          src="https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/18.jpg" // Replace with actual image URL
-          alt="Auth Image"
-          style={styles.image}
+          src={images[currentImage]}
+          alt="Slideshow"
+          className="image"
         />
       </div>
 
-      {/* Right Side Form */}
-      <div style={styles.formContainer}>
-        <div style={styles.card}>
-          <h2 style={styles.heading}>{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
-          {error && <p style={styles.error}>{error}</p>}
-          <form onSubmit={handleSubmit} style={styles.form}>
+      <div className="formContainer">
+        <div className="card">
+          <h2 className="heading">{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
+          {error && <p className="error">{error}</p>}
+          <form onSubmit={handleSubmit} className="form">
             {isSignUp && (
               <input
                 type="text"
@@ -84,7 +101,7 @@ const Auth = () => {
                 value={formData.fullName}
                 onChange={handleChange}
                 placeholder="Full Name"
-                style={styles.input}
+                className="input"
                 required
               />
             )}
@@ -94,7 +111,7 @@ const Auth = () => {
               value={formData.email}
               onChange={handleChange}
               placeholder="Email"
-              style={styles.input}
+              className="input"
               required
             />
             <input
@@ -103,7 +120,7 @@ const Auth = () => {
               value={formData.password}
               onChange={handleChange}
               placeholder="Password"
-              style={styles.input}
+              className="input"
               required
             />
             {isSignUp && (
@@ -113,97 +130,20 @@ const Auth = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="Confirm Password"
-                style={styles.input}
+                className="input"
                 required
               />
             )}
-            <button type="submit" style={styles.button}>{isSignUp ? 'Sign Up' : 'Sign In'}</button>
+            <button type="submit" className="button">{isSignUp ? 'Sign Up' : 'Sign In'}</button>
           </form>
 
-          <p style={styles.toggleText} onClick={() => setIsSignUp(!isSignUp)}>
+          <p className="toggleText" onClick={() => setIsSignUp(!isSignUp)}>
             {isSignUp ? 'Already have an account? Sign In' : 'Don’t have an account? Sign Up'}
           </p>
         </div>
       </div>
     </div>
   );
-};
-
-// Styles
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    backgroundColor: '#f4f4f4',
-  },
-  imageContainer: {
-    flex: 1,
-    maxWidth: '40%',
-    padding: '20px',
-  },
-  image: {
-    width: '100%',
-    height: 'auto',
-    borderRadius: '8px',
-  },
-  formContainer: {
-    flex: 1,
-    maxWidth: '450px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '20px',
-  },
-  card: {
-    width: '100%',
-    padding: '30px',
-    borderRadius: '8px',
-    backgroundColor: '#fff',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-    textAlign: 'center',
-  },
-  heading: {
-    fontSize: '28px',
-    marginBottom: '20px',
-    fontWeight: 'bold',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-  },
-  input: {
-    padding: '15px',
-    fontSize: '16px',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-    outline: 'none',
-    marginBottom: '10px',
-    width: '100%',
-  },
-  button: {
-    padding: '15px',
-    backgroundColor: '#007bff',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '5px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    transition: 'background-color 0.3s ease',
-    width: '100%',
-  },
-  error: {
-    color: 'red',
-    fontSize: '14px',
-    marginBottom: '10px',
-  },
-  toggleText: {
-    color: '#007bff',
-    cursor: 'pointer',
-    marginTop: '15px',
-  },
 };
 
 export default Auth;
