@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Profile = require('../models/Profile');
 const router = express.Router();
 
 // Signup
@@ -15,6 +16,16 @@ router.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({ username, email, password: hashedPassword });
     await newUser.save();
+    const newProfile = new Profile({
+      userId: newUser._id, // Linking profile to user
+      bio: '',
+      address: '',
+      contact: '',
+      country: '',
+      academicYear: '',
+      profilePicture: '',
+    });
+    await newProfile.save();
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
