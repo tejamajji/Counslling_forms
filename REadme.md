@@ -81,3 +81,5 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 ## Thank you for contributing 💗 
 We truly appreciate your time and effort to help improve our project. Happy coding! 🚀
 
+Thankyou
+
