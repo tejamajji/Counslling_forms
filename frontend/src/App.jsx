@@ -7,6 +7,7 @@ import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
+import MarksTable from './pages/MarksTable';
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
@@ -34,6 +35,8 @@ const App = () => {
           {/* Add more routes here if needed */}
           
         </Routes>
+        <MarksTable />
+        
         <Footer />
       </Router>
     </>
