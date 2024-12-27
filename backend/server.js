@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
+const semesterRoutes = require('./routes/marks');  // Updated route name
 
 dotenv.config();
 const app = express();
@@ -15,13 +16,17 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());  // Parse incoming requests with JSON payloads
 
 // Routes
 app.get('/test', (req, res) => {
     res.send('API is running...');
-})
+});
+
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/semester', semesterRoutes);  // Updated endpoint to match unified semester logic
 
 // Start Server
 const PORT = process.env.PORT || 5000;
