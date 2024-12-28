@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 
 const MarksTable = () => {
   const subjectsList = [
@@ -11,9 +12,42 @@ const MarksTable = () => {
   ];
 
   const [currentTable, setCurrentTable] = useState(0); // Keeps track of the current table page
+  const [marks, setMarks] = useState({}); // Stores the marks for each subject
+  const [cgpa, setCgpa] = useState(''); // Stores the overall CGPA
 
   const handleTableSelect = (tableIndex) => {
     setCurrentTable(tableIndex - 1); // Adjust for zero-based index
+  };
+
+  const handleInputChange = (subject, field, value) => {
+    setMarks((prevMarks) => ({
+      ...prevMarks,
+      [subject]: {
+        ...prevMarks[subject],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSubmit = () => {
+    const semester = currentTable + 1; // Current semester
+    const email = "322103311018@gvpce.ac.in"; // Replace with actual student email
+    const subjects = Object.keys(marks).map((subject) => ({
+      subject,
+      ...marks[subject],
+    }));
+
+    const payload = { email, semester, cgpa, subjects };
+
+    axios
+      .post('http://localhost:5000/api/semester', payload)
+      .then((response) => {
+        alert(response.data.message);
+      })
+      .catch((error) => {
+        console.error('Error submitting marks:', error);
+        alert('Failed to submit marks.');
+      });
   };
 
   const currentSubjects = subjectsList[currentTable] || []; // Get subjects for the current table
@@ -45,19 +79,22 @@ const MarksTable = () => {
             {currentSubjects.map((subject, index) => (
               <tr key={index}>
                 <td>{subject}</td>
-                <td><input type="number" placeholder="Midterm 1" /></td>
-                <td><input type="number" placeholder="Midterm 2" /></td>
-                <td><input type="number" placeholder="Average Mid" /></td>
-                <td><input type="number" placeholder="Final Exam" /></td>
+                <td><input type="number" placeholder="Midterm 1" onChange={(e) => handleInputChange(subject, 'mid1', e.target.value)} /></td>
+                <td><input type="number" placeholder="Midterm 2" onChange={(e) => handleInputChange(subject, 'mid2', e.target.value)} /></td>
+                <td><input type="number" placeholder="Average Mid" onChange={(e) => handleInputChange(subject, 'average', e.target.value)} /></td>
+                <td><input type="text" placeholder="Grade" onChange={(e) => handleInputChange(subject, 'grade', e.target.value)} /></td>
               </tr>
             ))}
             <tr>
               <td colSpan="5" style={{ textAlign: 'center', fontWeight: 'bold' }}>
-                Overall CGPA: <input type="number" placeholder="Enter CGPA" style={{ width: '50%' }} />
+                Overall CGPA: <input type="number" placeholder="Enter CGPA" style={{ width: '50%' }} onChange={(e) => setCgpa(e.target.value)} />
               </td>
             </tr>
           </tbody>
         </table>
+        <button style={{ display: 'block', margin: '0 auto', padding: '10px 20px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }} onClick={handleSubmit}>
+          Submit Marks
+        </button>
       </div>
 
       <div style={{
@@ -91,3 +128,4 @@ const MarksTable = () => {
 };
 
 export default MarksTable;
+ 
