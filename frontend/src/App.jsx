@@ -7,6 +7,7 @@ import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
+import MarksTable from './pages/MarksTable';
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
@@ -25,7 +26,6 @@ const App = () => {
           {/* Public Routes */}
           <Route path="/" element={isAuthenticated ? <Dashboard /> : <LandingPage />} />
           <Route path="/signup" element={<SignUp />} />
-
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
@@ -34,6 +34,8 @@ const App = () => {
           {/* Add more routes here if needed */}
           
         </Routes>
+        <MarksTable />
+        
         <Footer />
       </Router>
     </>
