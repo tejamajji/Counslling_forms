@@ -30,11 +30,14 @@ const App = () => {
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
           <Route path="/edit-profile" element={<ProtectedRoute element={<EditProfile />} />} />
+          <Route path="/semester" element={<MarksTable />} />
+
+          
           
           {/* Add more routes here if needed */}
           
         </Routes>
-        <MarksTable />
+       
         
         <Footer />
       </Router>
