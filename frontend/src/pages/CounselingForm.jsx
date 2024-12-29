@@ -163,7 +163,7 @@ const CounselingForm = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 name="tenthMaxMarks"
-                label="Max Marks"
+                label="Max Marks (10th)"
                 type="number"
                 fullWidth
                 required
@@ -173,7 +173,7 @@ const CounselingForm = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 name="tenthPercentage"
-                label="Percentage"
+                label="Percentage (10th)"
                 fullWidth
                 required
                 onChange={handleChange}
@@ -192,7 +192,7 @@ const CounselingForm = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 name="interMaxMarks"
-                label="Max Marks"
+                label="Max Marks (Intermediate)"
                 type="number"
                 fullWidth
                 required
@@ -202,7 +202,7 @@ const CounselingForm = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 name="interPercentage"
-                label="Percentage"
+                label="Percentage (Intermediate)"
                 fullWidth
                 required
                 onChange={handleChange}
