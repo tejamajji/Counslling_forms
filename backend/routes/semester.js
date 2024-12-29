@@ -1,5 +1,5 @@
 const express = require('express');
-const Semester = require('../models/Marks'); // Unified Semester model
+const Semester = require('../models/Semester'); // Unified Semester model
 const router = express.Router();
 
 // Create or Update Marks for a Semester
