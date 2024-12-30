@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import MarksTable from './pages/MarksTable';
+import CounselingForm from './pages/CounselingForm';
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
@@ -30,8 +31,10 @@ const App = () => {
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
           <Route path="/edit-profile" element={<ProtectedRoute element={<EditProfile />} />} />
+          <Route path="/counseling-form" element={<ProtectedRoute element={<CounselingForm />} />} />
           
           {/* Add more routes here if needed */}
+
           
         </Routes>
         <MarksTable />
