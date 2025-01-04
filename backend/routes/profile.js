@@ -1,77 +1,92 @@
 const express = require('express');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authMiddleware } = require('../middlewares/authMiddleware'); // Corrected to ensure proper import
 const router = express.Router();
 
-// Get Profile (user profile with additional details)
+/**
+ * @route GET /api/profile
+ * @desc Get user profile with additional details
+ * @access Private
+ */
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
     // Retrieve user details
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(userId).select('-password');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Retrieve profile details (separate Profile model)
-    const profile = await Profile.findOne({ userId: req.user.id });
+    // Retrieve profile details
+    const profile = await Profile.findOne({ userId });
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
-    
-    res.json({ ...user.toObject(), profile });
+    res.status(200).json({ user: user.toObject(), profile });
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching profile:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Update Profile
+/**
+ * @route PATCH /api/profile
+ * @desc Update user profile and basic details
+ * @access Private
+ */
 router.patch('/', authMiddleware, async (req, res) => {
-  const { username, profilePicture, address, contact, bio, country, academicYear } = req.body;
+  const {
+    username,
+    profilePicture,
+    address,
+    contact,
+    bio,
+    country,
+    academicYear,
+  } = req.body;
 
   try {
-    // First, update the user's basic information (if required)
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Update user details (basic information)
     const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { username, profilePicture }, // Update basic user details
-      { new: true }
+      userId,
+      { username, profilePicture },
+      { new: true, runValidators: true }
     ).select('-password');
 
     if (!updatedUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Then, update the user's profile details in the Profile model
-    let profile = await Profile.findOne({ userId: req.user.id });
+    // Update or create profile
+    const profileUpdate = {
+      bio,
+      address,
+      contact,
+      country,
+      academicYear,
+      profilePicture,
+    };
 
-    if (!profile) {
-      // If profile doesn't exist, create a new profile
-      profile = new Profile({
-        userId: req.user.id,
-        bio,
-        address,
-        contact,
-        country,
-        academicYear,
-        profilePicture
-      });
-      await profile.save();
-    } else {
-      // If profile exists, update it
-      profile.bio = bio;
-      profile.address = address;
-      profile.contact = contact;
-      profile.country = country;
-      profile.academicYear = academicYear;
-      profile.profilePicture = profilePicture;
-      await profile.save();
-    }
+    const profile = await Profile.findOneAndUpdate(
+      { userId },
+      { $set: profileUpdate },
+      { new: true, upsert: true, runValidators: true }
+    );
 
-    res.json({ updatedUser, profile }); // Return both updated user and profile data
+    res.status(200).json({ user: updatedUser, profile });
   } catch (err) {
-    console.error(err);
+    console.error('Error updating profile:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
