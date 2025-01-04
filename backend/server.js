@@ -5,6 +5,8 @@ const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
+const semesterRoutes = require('./routes/marks');  // Updated route name
+const adminRoutes = require('./routes/admin');
 const semesterRoutes = require('./routes/semester');  // Updated route name
 
 dotenv.config();
@@ -34,6 +36,8 @@ app.get('/test', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/semester', semesterRoutes);  // Updated endpoint to match unified semester logic
+app.use('/api/admin', adminRoutes);
+
 
 // Start Server
 const PORT = process.env.PORT || 5000;
