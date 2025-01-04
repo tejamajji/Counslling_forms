@@ -32,12 +32,14 @@ const App = () => {
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
           <Route path="/edit-profile" element={<ProtectedRoute element={<EditProfile />} />} />
           <Route path="/counseling-form" element={<ProtectedRoute element={<CounselingForm />} />} />
+          <Route path="/semester" element={<MarksTable />} />
+
           
           {/* Add more routes here if needed */}
 
           
         </Routes>
-        <MarksTable />
+       
         
         <Footer />
       </Router>
