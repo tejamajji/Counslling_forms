@@ -1,14 +1,16 @@
 import React from 'react';
-import Footer from './components/Footer';
-import LandingPage from './pages/LandingPage';
-import Header from './components/Header';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Footer from './components/Footer';
+import Header from './components/Header';
+import LandingPage from './pages/UserLandingPage.jsx';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import MarksTable from './pages/MarksTable';
 import CounselingForm from './pages/CounselingForm';
+import AdminLandingPage from './pages/AdminLandingPage';
+import UserLandingPage from './pages/UserLandingPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
@@ -32,13 +34,13 @@ const App = () => {
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
           <Route path="/edit-profile" element={<ProtectedRoute element={<EditProfile />} />} />
           <Route path="/counseling-form" element={<ProtectedRoute element={<CounselingForm />} />} />
+          <Route path="/admin-landing" element={<ProtectedRoute element={<AdminLandingPage />} />} />
+          <Route path="/user-landing" element={<ProtectedRoute element={<UserLandingPage />} />} />
           
           {/* Add more routes here if needed */}
-
           
         </Routes>
         <MarksTable />
-        
         <Footer />
       </Router>
     </>
