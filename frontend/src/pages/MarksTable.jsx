@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const MarksTable = () => {
@@ -13,39 +13,74 @@ const MarksTable = () => {
 
   const [currentTable, setCurrentTable] = useState(0); // Keeps track of the current table page
   const [marks, setMarks] = useState({}); // Stores the marks for each subject
-  const [cgpa, setCgpa] = useState(''); // Stores the overall CGPA
+  const [cgpa, setCgpa] = useState(0); // Stores the overall CGPA
+
+  // Load marks from localStorage when the component mounts or when table changes
+  useEffect(() => {
+    const savedMarks = localStorage.getItem(`marks-sem-${currentTable + 1}`);
+    if (savedMarks) {
+      setMarks(JSON.parse(savedMarks));
+    } else {
+      setMarks({});  // Reset marks if no saved data
+    }
+  }, [currentTable]); // Trigger when currentTable changes
 
   const handleTableSelect = (tableIndex) => {
     setCurrentTable(tableIndex - 1); // Adjust for zero-based index
   };
 
   const handleInputChange = (subject, field, value) => {
-    setMarks((prevMarks) => ({
-      ...prevMarks,
-      [subject]: {
-        ...prevMarks[subject],
-        [field]: value,
-      },
-    }));
+    setMarks((prevMarks) => {
+      const newMarks = {
+        ...prevMarks,
+        [subject]: {
+          ...prevMarks[subject],
+          [field]: value,
+        },
+      };
+
+      // Save the updated marks to localStorage to persist them
+      localStorage.setItem(`marks-sem-${currentTable + 1}`, JSON.stringify(newMarks));
+
+      return newMarks;
+    });
   };
 
   const handleSubmit = () => {
     const semester = currentTable + 1; // Current semester
-    const email = "322103311018@gvpce.ac.in"; // Replace with actual student email
-    const subjects = Object.keys(marks).map((subject) => ({
-      subject,
-      ...marks[subject],
-    }));
+    const email = "majjiteja000@gmail.com"; // Replace with actual student email
+
+    // Validate marks data
+    const subjects = Object.keys(marks).map((subject) => {
+      const { mid1, mid2, average, grade } = marks[subject];
+
+      // Check if any field is missing or invalid
+      if (!mid1 || !mid2 || !average || !grade) {
+        alert(`Please fill all fields for ${subject}`);
+        return null; // Skip this subject if any field is missing
+      }
+
+      return { subject, mid1, mid2, average, grade };
+    }).filter(Boolean); // Remove null subjects
+
+    // Check if there are any subjects to submit
+    if (subjects.length === 0) {
+      alert('Please fill in all subject fields.');
+      return;
+    }
 
     const payload = { email, semester, cgpa, subjects };
 
+    console.log('Payload before submitting:', payload); // Log the payload
+
+    // Send the data using axios
     axios
-      .post('http://localhost:5000/api/semester', payload)
+      .post(`http://localhost:5000/api/semester/${semester}`, payload)
       .then((response) => {
         alert(response.data.message);
       })
       .catch((error) => {
-        console.error('Error submitting marks:', error);
+        console.error('Error submitting marks:', error.response || error);
         alert('Failed to submit marks.');
       });
   };
@@ -79,10 +114,10 @@ const MarksTable = () => {
             {currentSubjects.map((subject, index) => (
               <tr key={index}>
                 <td>{subject}</td>
-                <td><input type="number" placeholder="Midterm 1" onChange={(e) => handleInputChange(subject, 'mid1', e.target.value)} /></td>
-                <td><input type="number" placeholder="Midterm 2" onChange={(e) => handleInputChange(subject, 'mid2', e.target.value)} /></td>
-                <td><input type="number" placeholder="Average Mid" onChange={(e) => handleInputChange(subject, 'average', e.target.value)} /></td>
-                <td><input type="text" placeholder="Grade" onChange={(e) => handleInputChange(subject, 'grade', e.target.value)} /></td>
+                <td><input type="number" placeholder="Midterm 1" onChange={(e) => handleInputChange(subject, 'mid1', e.target.value)} value={marks[subject]?.mid1 || ''} /></td>
+                <td><input type="number" placeholder="Midterm 2" onChange={(e) => handleInputChange(subject, 'mid2', e.target.value)} value={marks[subject]?.mid2 || ''} /></td>
+                <td><input type="number" placeholder="Average Mid" onChange={(e) => handleInputChange(subject, 'average', e.target.value)} value={marks[subject]?.average || ''} /></td>
+                <td><input type="text" placeholder="Grade" onChange={(e) => handleInputChange(subject, 'grade', e.target.value)} value={marks[subject]?.grade || ''} /></td>
               </tr>
             ))}
             <tr>
@@ -103,9 +138,9 @@ const MarksTable = () => {
         width: '80%',
         backgroundColor: '#fff',
         padding: '10px 0',
-        borderRadius: '5px 5px 0 0',  // Rounded top corners
+        borderRadius: '5px 5px 0 0',
         boxShadow: '0 -2px 5px rgba(0, 0, 0, 0.1)',
-        marginTop: '10px'  // Decreased space above scroll bar
+        marginTop: '10px',
       }}>
         {Array.from({ length: 8 }, (_, index) => (
           <button
@@ -128,4 +163,3 @@ const MarksTable = () => {
 };
 
 export default MarksTable;
- 
