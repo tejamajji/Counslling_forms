@@ -5,23 +5,25 @@ const SubjectSchema = new mongoose.Schema({
   subject: { type: String, required: true },
   mid1: { type: Number, required: true },
   mid2: { type: Number, required: true },
-  average: { type: Number, required: true },
-  grade: { type: String, required: true },
+  ext: { type: Number, required: true },
 });
 
-// Unified Semester Schema
-const SemesterSchema = new mongoose.Schema(
+// Semester Schema
+const SemesterSchema = new mongoose.Schema({
+  semester: { type: Number, required: true },
+  subjects: [SubjectSchema],
+});
+
+// Unified Marks Schema for all semesters
+const MarksSchema = new mongoose.Schema(
   {
-    email: { type: String, required: true },             // Foreign key to identify the student
-    semester: { type: Number, required: true },          // Semester number (1-8)
-    cgpa: { type: Number, required: true },              // CGPA specific to this semester
-    subjects: [SubjectSchema],                           // Array of subjects for the semester
+    email: { type: String, required: true, unique: true }, // Unique identifier for a student
+    semesters: [SemesterSchema], // Array of semester data
   },
   { timestamps: true }
 );
 
-// Unified Semester Model
-const Semester = mongoose.model('Semester', SemesterSchema);
+// Unified Marks Model
+const Marks = mongoose.model('Marks', MarksSchema);
 
-// Export the model
-module.exports = Semester;
+module.exports = Marks;

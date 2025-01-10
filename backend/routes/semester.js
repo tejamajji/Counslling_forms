@@ -1,111 +1,109 @@
 const express = require('express');
-const Semester = require('../models/Semester'); // Unified Semester model
+const Marks = require('../models/Semester'); // Unified Marks model
 const router = express.Router();
 
-// Create or Update Marks for a Semester
-router.post('/:semester', async (req, res) => {
-  const { semester } = req.params;
-  const { email, cgpa, subjects } = req.body;
+// Create or Update All Semester Details for a Student
+router.post('/', async (req, res) => {
+  const { email, subjects } = req.body;
 
   try {
-    // Check if a record already exists for the student in the given semester
-    let semesterRecord = await Semester.findOne({ email, semester });
-    if (semesterRecord) {
-      // Update existing record
-      semesterRecord.cgpa = cgpa;
-      semesterRecord.subjects = subjects;
-      await semesterRecord.save();
-      return res.status(200).json({ message: `Marks updated for Semester ${semester}` });
+    // Check if a record already exists for the student
+    let marksRecord = await Marks.findOne({ email });
+
+    if (marksRecord) {
+      // Update the existing record
+      marksRecord.semesters = subjects;
+      await marksRecord.save();
+      return res.status(200).json({ message: 'Marks updated successfully.' });
     } else {
-      // Create new record
-      const newSemesterRecord = new Semester({
-        email,
-        semester,
-        cgpa,
-        subjects,
-      });
-      await newSemesterRecord.save();
-      return res.status(201).json({ message: `Marks added for Semester ${semester}` });
+      // Create a new record
+      const newMarksRecord = new Marks({ email, semesters: subjects });
+      await newMarksRecord.save();
+      return res.status(201).json({ message: 'Marks added successfully.' });
     }
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get Marks for a specific semester
-router.get('/:semester/:email', async (req, res) => {
-  const { semester, email } = req.params;
+// Get Marks for a Specific Semester
+router.get('/:email/:semester', async (req, res) => {
+  const { email, semester } = req.params;
 
   try {
-    const semesterRecord = await Semester.findOne({ email, semester });
+    const marksRecord = await Marks.findOne({ email });
 
-    if (!semesterRecord) {
-      return res.status(404).json({ error: `No marks found for ${email} in Semester ${semester}` });
+    if (!marksRecord) {
+      return res.status(404).json({ error: `No marks found for ${email}.` });
     }
-    return res.status(200).json(semesterRecord);
+
+    const semesterDetails = marksRecord.semesters.find(
+      (sem) => sem.semester === parseInt(semester)
+    );
+
+    if (!semesterDetails) {
+      return res.status(404).json({ error: `No marks found for Semester ${semester}.` });
+    }
+
+    return res.status(200).json(semesterDetails);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get All Marks for a Semester
-router.get('/:semester', async (req, res) => {
-  const { semester } = req.params;
+// Update Marks for a Specific Subject in a Semester
+router.put('/:email/:semester/subject/:subjectName', async (req, res) => {
+  const { email, semester, subjectName } = req.params;
+  const { mid1, mid2, ext } = req.body;
 
   try {
-    const allMarks = await Semester.find({ semester });
-    return res.status(200).json(allMarks);
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    const marksRecord = await Marks.findOne({ email });
 
-// Delete Marks for a specific student in a semester
-router.delete('/:semester/:email', async (req, res) => {
-  const { semester, email } = req.params;
-
-  try {
-    const semesterRecord = await Semester.findOneAndDelete({ email, semester });
-
-    if (!semesterRecord) {
-      return res.status(404).json({ error: `No marks found for ${email} in Semester ${semester}` });
-    }
-    return res.status(200).json({ message: `Marks deleted for Semester ${semester}` });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Update Marks for a Subject
-router.put('/:semester/:email/subjects/:subjectName', async (req, res) => {
-  const { semester, email, subjectName } = req.params;
-  const { mid1, mid2, average, grade } = req.body;
-
-  try {
-    const semesterRecord = await Semester.findOne({ email, semester });
-
-    if (!semesterRecord) {
-      return res.status(404).json({ error: `No record found for ${email} in Semester ${semester}` });
+    if (!marksRecord) {
+      return res.status(404).json({ error: `No record found for ${email}.` });
     }
 
-    // Find and update the subject
-    const subject = semesterRecord.subjects.find((subj) => subj.subject === subjectName);
+    const semesterDetails = marksRecord.semesters.find(
+      (sem) => sem.semester === parseInt(semester)
+    );
+
+    if (!semesterDetails) {
+      return res.status(404).json({ error: `No marks found for Semester ${semester}.` });
+    }
+
+    const subject = semesterDetails.subjects.find((subj) => subj.subject === subjectName);
     if (subject) {
       subject.mid1 = mid1;
       subject.mid2 = mid2;
-      subject.average = average;
-      subject.grade = grade;
+      subject.ext = ext;
     } else {
-      semesterRecord.subjects.push({
-        subject: subjectName,
-        mid1,
-        mid2,
-        average,
-        grade,
-      });
+      semesterDetails.subjects.push({ subject: subjectName, mid1, mid2, ext });
     }
-    await semesterRecord.save();
-    return res.status(200).json({ message: 'Subject marks updated successfully' });
+
+    await marksRecord.save();
+    return res.status(200).json({ message: 'Subject marks updated successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete Marks for a Specific Semester
+router.delete('/:email/:semester', async (req, res) => {
+  const { email, semester } = req.params;
+
+  try {
+    const marksRecord = await Marks.findOne({ email });
+
+    if (!marksRecord) {
+      return res.status(404).json({ error: `No record found for ${email}.` });
+    }
+
+    marksRecord.semesters = marksRecord.semesters.filter(
+      (sem) => sem.semester !== parseInt(semester)
+    );
+
+    await marksRecord.save();
+    return res.status(200).json({ message: `Semester ${semester} marks deleted successfully.` });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
