@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
-const semesterRoutes = require('./routes/marks');  // Updated route name
+//const semesterRoutes = require('./routes/marks');  // Updated route name
 const adminRoutes = require('./routes/admin');
 const semesterRoutes = require('./routes/semester');  // Updated route name
 
