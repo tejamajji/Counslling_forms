@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './css/SignUp.css'; // Import CSS file
 
-const SignUp = () => {
+const Auth = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -70,12 +70,7 @@ const SignUp = () => {
 
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userRole', data.role); // Store the user's role
-        if (data.role === 'admin') {
-          navigate('/admin-landing');
-        } else {
-          navigate('/user-landing');
-        }
+        navigate('/');
       } else {
         setError(data.message || 'Something went wrong');
       }
@@ -151,4 +146,4 @@ const SignUp = () => {
   );
 };
 
-export default SignUp;
+export default Auth;
