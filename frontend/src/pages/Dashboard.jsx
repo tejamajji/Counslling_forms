@@ -15,6 +15,7 @@ const Dashboard = () => {
       navigate('/signup');
     }
   }, [navigate]);
+
   const handleLogout = () => {
     // Remove token from localStorage and redirect to signup page
     localStorage.removeItem('authToken');
