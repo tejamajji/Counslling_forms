@@ -70,7 +70,12 @@ const Auth = () => {
 
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-        navigate('/');
+        localStorage.setItem('userRole', data.role); // Store the user's role
+        if (data.role === 'admin') {
+          navigate('/admin-landing');
+        } else {
+          navigate('/user-landing');
+        }
       } else {
         setError(data.message || 'Something went wrong');
       }
