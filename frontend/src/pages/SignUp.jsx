@@ -23,17 +23,15 @@ const Auth = () => {
     "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/21.jpg",
     "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/22.jpg",
     "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/23.jpg",
-    // Add more images here
   ];
-
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImage((prevIndex) => (prevIndex + 1) % images.length);
-    }, 3000); // Change image every 3 seconds
-
+    }, 3000);
+  
     return () => clearInterval(interval);
-  },);
-
+  }, [images.length]); // ✅ Added images.length as a dependency
+  
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -70,7 +68,9 @@ const Auth = () => {
 
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-        navigate('/');
+        localStorage.setItem('userEmail', formData.email); // ✅ Store user email
+        console.log("Stored Email:", formData.email); // Debugging
+        navigate('/dashboard');
       } else {
         setError(data.message || 'Something went wrong');
       }
@@ -82,11 +82,7 @@ const Auth = () => {
   return (
     <div className="container">
       <div className="imageContainer">
-        <img
-          src={images[currentImage]}
-          alt="Slideshow"
-          className="image"
-        />
+        <img src={images[currentImage]} alt="Slideshow" className="image" />
       </div>
 
       <div className="formContainer">

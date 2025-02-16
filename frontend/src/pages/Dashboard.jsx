@@ -1,37 +1,42 @@
-// Dashboard.js
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  
+  const [user, setUser] = useState({ name: '', email: '' });
+
   useEffect(() => {
-    // Check if token is available in localStorage
     const authToken = localStorage.getItem('authToken');
-    
+    const userEmail = localStorage.getItem('userEmail');
+    const userName = localStorage.getItem('userName');
+
     if (!authToken) {
-      // Redirect to signup page if token is not found
       navigate('/signup');
+      return;
     }
+
+    // Set user details from localStorage (or fetch from API if needed)
+    setUser({ name: userName || 'User', email: userEmail || 'Not Available' });
   }, [navigate]);
 
   const handleLogout = () => {
-    // Remove token from localStorage and redirect to signup page
     localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
     navigate('/signup');
   };
 
   return (
     <div style={styles.container}>
       <h2>Welcome to Your Dashboard</h2>
-      <p style={styles.welcomeText}>This is your personalized dashboard</p>
+      <p style={styles.text}>Hello, <strong>{user.name}</strong>!</p>
+      <p style={styles.text}>Your Email: <strong>{user.email}</strong></p>
       <button onClick={handleLogout} style={styles.button}>Log Out</button>
+      <button onClick={() => navigate('/semester')} style={styles.marksButton}>Semester Marks</button>
     </div>
   );
 };
 
-// Styles (same as before)
 const styles = {
   container: {
     display: 'flex',
@@ -42,9 +47,9 @@ const styles = {
     backgroundColor: '#f4f4f4',
     fontFamily: 'Arial, sans-serif',
   },
-  welcomeText: {
+  text: {
     fontSize: '18px',
-    marginBottom: '20px',
+    marginBottom: '10px',
   },
   button: {
     padding: '10px',
@@ -54,6 +59,17 @@ const styles = {
     borderRadius: '5px',
     fontSize: '16px',
     cursor: 'pointer',
+    margin: '10px',
+  },
+  marksButton: {
+    padding: '10px',
+    backgroundColor: '#28a745',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '5px',
+    fontSize: '16px',
+    cursor: 'pointer',
+    margin: '10px',
   },
 };
 
