@@ -2,26 +2,41 @@ const express = require('express');
 const Marks = require('../models/Semester'); // Unified Marks model
 const router = express.Router();
 
-// Create or Update All Semester Details for a Student
+// Create or Update a Semester for a Student
 router.post('/', async (req, res) => {
-  const { email, subjects } = req.body;
+  const { email, semester, subjects } = req.body;
 
   try {
-    // Check if a record already exists for the student
     let marksRecord = await Marks.findOne({ email });
 
     if (marksRecord) {
-      // Update the existing record
-      marksRecord.semesters = subjects;
+      // Check if semester exists
+      let semesterIndex = marksRecord.semesters.findIndex(
+        (sem) => sem.semester === parseInt(semester)
+      );
+
+      if (semesterIndex !== -1) {
+        // Semester exists, update it
+        marksRecord.semesters[semesterIndex].subjects = subjects;
+      } else {
+        // Add new semester
+        marksRecord.semesters.push({ semester: parseInt(semester), subjects });
+      }
+
       await marksRecord.save();
-      return res.status(200).json({ message: 'Marks updated successfully.' });
+      return res.status(200).json({ message: 'Semester marks updated successfully.' });
     } else {
       // Create a new record
-      const newMarksRecord = new Marks({ email, semesters: subjects });
+      const newMarksRecord = new Marks({
+        email,
+        semesters: [{ semester: parseInt(semester), subjects }],
+      });
+
       await newMarksRecord.save();
       return res.status(201).json({ message: 'Marks added successfully.' });
     }
   } catch (err) {
+    console.error("Error saving semester data:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -29,7 +44,7 @@ router.post('/', async (req, res) => {
 // Get Marks for a Specific Semester
 router.get('/:email/:semester', async (req, res) => {
   const { email, semester } = req.params;
-
+  
   try {
     const marksRecord = await Marks.findOne({ email });
 
@@ -47,6 +62,38 @@ router.get('/:email/:semester', async (req, res) => {
 
     return res.status(200).json(semesterDetails);
   } catch (err) {
+    console.error("Error fetching semester details:", err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update Marks for a Specific Semester
+router.put('/:email/:semester', async (req, res) => {
+  const { email, semester } = req.params;
+  const { subjects } = req.body;
+
+  try {
+    const marksRecord = await Marks.findOne({ email });
+
+    if (!marksRecord) {
+      return res.status(404).json({ error: `No record found for ${email}.` });
+    }
+
+    const semesterDetails = marksRecord.semesters.find(
+      (sem) => sem.semester === parseInt(semester)
+    );
+
+    if (!semesterDetails) {
+      return res.status(404).json({ error: `No marks found for Semester ${semester}.` });
+    }
+
+    // Update only the subjects of the given semester
+    semesterDetails.subjects = subjects;
+    await marksRecord.save();
+
+    return res.status(200).json({ message: 'Semester marks updated successfully.' });
+  } catch (err) {
+    console.error("Error updating semester marks:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -72,6 +119,7 @@ router.put('/:email/:semester/subject/:subjectName', async (req, res) => {
     }
 
     const subject = semesterDetails.subjects.find((subj) => subj.subject === subjectName);
+
     if (subject) {
       subject.mid1 = mid1;
       subject.mid2 = mid2;
@@ -83,6 +131,7 @@ router.put('/:email/:semester/subject/:subjectName', async (req, res) => {
     await marksRecord.save();
     return res.status(200).json({ message: 'Subject marks updated successfully.' });
   } catch (err) {
+    console.error("Error updating subject marks:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -105,6 +154,7 @@ router.delete('/:email/:semester', async (req, res) => {
     await marksRecord.save();
     return res.status(200).json({ message: `Semester ${semester} marks deleted successfully.` });
   } catch (err) {
+    console.error("Error deleting semester:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
