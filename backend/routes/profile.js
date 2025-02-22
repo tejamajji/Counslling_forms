@@ -1,111 +1,187 @@
-const express = require('express');
-const User = require('../models/User');
-const Profile = require('../models/Profile');
-const cloudinary = require('cloudinary').v2; // Import Cloudinary
-const { authMiddleware } = require('../middlewares/authMiddleware');
+const express = require("express");
+const dotenv = require("dotenv");
+const User = require("../models/User");
+const Profile = require("../models/Profile");
+const cloudinary = require("cloudinary").v2;
+const { authMiddleware, adminMiddleware } = require("../middlewares/authMiddleware");
+
+dotenv.config();
+
 const router = express.Router();
 
-// Configure Cloudinary with your credentials
 cloudinary.config({
-  cloud_name: '',  // Replace with your Cloudinary cloud name
-  api_key: '', // Replace with your Cloudinary API key
-  api_secret: '', 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 /**
  * @route GET /api/profile
- * @desc Get user profile with additional details
+ * @desc Get logged-in user's profile
  * @access Private
  */
-router.get('/', authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    // Retrieve user details (excluding the password)
-    const user = await User.findById(userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Retrieve profile details
-    const profile = await Profile.findOne({ userId });
-    if (!profile) {
-      return res.status(404).json({ error: 'Profile not found' });
-    }
-
-    // Return the merged response
-    res.status(200).json({ user: user.toObject(), profile: profile.toObject() });
+    const profile = await Profile.findOne({ userId: req.user.id });
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    res.status(200).json(profile);
   } catch (err) {
-    console.error('Error fetching profile:', err.message);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * @route GET /api/profile/:regdNo
+ * @desc Get profile by registration number
+ * @access Private
+ */
+router.get("/:regdNo", authMiddleware, async (req, res) => {
+  try {
+    const profile = await Profile.findOne({ regdNo: req.params.regdNo });
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    res.status(200).json(profile);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * @route POST /api/profile
+ * @desc Create a new profile
+ * @access Private
+ */
+router.post("/", authMiddleware, async (req, res) => {
+  try {
+    const { name, regdNo, section, mobileNumber, email, admissionType, caste, rank, dob, bloodGroup, tenthMarks, interDiplomaMarks, parentDetails, localGuardian, hobbies, participation, profilePicture, attendance } = req.body;
+
+    if (!name || !regdNo || !email) {
+      return res.status(400).json({ error: "Required fields are missing" });
+    }
+
+    // Check if profile already exists
+    const existingProfile = await Profile.findOne({ userId: req.user.id });
+    if (existingProfile) {
+      return res.status(400).json({ error: "Profile already exists. Use PATCH to update." });
+    }
+
+    // Create new profile
+    const newProfile = new Profile({
+      userId: req.user.id,
+      name,
+      regdNo,
+      section,
+      mobileNumber,
+      email,
+      admissionType,
+      caste,
+      rank,
+      dob,
+      bloodGroup,
+      tenthMarks,
+      interDiplomaMarks,
+      parentDetails,
+      localGuardian,
+      hobbies,
+      participation,
+      profilePicture,
+      attendance
+    });
+
+    await newProfile.save();
+    res.status(201).json(newProfile);
+  } catch (err) {
+    console.error("Error creating profile:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * @route PUT /api/profile/:id
+ * @desc Update profile by ID
+ * @access Private
+ */
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedProfile = await Profile.findByIdAndUpdate(
+      id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProfile) return res.status(404).json({ error: "Profile not found" });
+
+    res.status(200).json(updatedProfile);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 /**
  * @route PATCH /api/profile
- * @desc Update user profile and basic details
+ * @desc Update profile using userId
  * @access Private
  */
-router.patch('/', authMiddleware, async (req, res) => {
-  const {
-    username,
-    profilePicture,
-    address,
-    contact,
-    bio,
-    country,
-    academicYear,
-  } = req.body;
-
+router.patch("/", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    let cloudinaryUrl = profilePicture;
-    if (profilePicture && profilePicture.startsWith('data:image')) {
-      const uploadResponse = await cloudinary.uploader.upload(profilePicture, {
-        folder: 'user_profiles',
-      });
-      cloudinaryUrl = uploadResponse.secure_url;
-    }
-
-    // Update user details (basic information)
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { username, profilePicture: cloudinaryUrl },
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    if (!updatedUser) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Update or create profile details
-    const profileUpdate = {
-      bio,
-      address,
-      contact,
-      country,
-      academicYear,
-      profilePicture: cloudinaryUrl,
-    };
-
     const updatedProfile = await Profile.findOneAndUpdate(
-      { userId },
-      { $set: profileUpdate },
-      { new: true, upsert: true, runValidators: true }
+      { userId: req.user.id },
+      { $set: req.body },
+      { new: true, runValidators: true }
     );
 
-    // Return a merged response with updated user and profile data
-    res.status(200).json({ user: updatedUser.toObject(), profile: updatedProfile.toObject() });
+    if (!updatedProfile) return res.status(404).json({ error: "Profile not found" });
+
+    res.status(200).json(updatedProfile);
   } catch (err) {
-    console.error('Error updating profile:', err.message);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * @route PATCH /api/profile/attendance
+ * @desc Update attendance (Admin Only)
+ * @access Admin
+ */
+router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { userId, semester, month, percentage } = req.body;
+    if (!userId || !semester || !month || percentage === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const profile = await Profile.findOne({ userId });
+    if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+    profile.attendance = profile.attendance || [];
+    let semesterEntry = profile.attendance.find((s) => s.semester === semester);
+    if (!semesterEntry) {
+      semesterEntry = { semester, months: {} };
+      profile.attendance.push(semesterEntry);
+    }
+    semesterEntry.months[month] = { percentage };
+
+    await profile.save();
+    res.status(200).json({ message: "Attendance updated successfully", profile });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * @route DELETE /api/profile/:id
+ * @desc Delete user profile (Admin Only)
+ * @access Admin
+ */
+router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const deletedProfile = await Profile.findByIdAndDelete(req.params.id);
+    if (!deletedProfile) return res.status(404).json({ error: "Profile not found" });
+
+    res.status(200).json({ message: "Profile deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
   }
 });
 

@@ -1,24 +1,54 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState({ name: '', email: '' });
+  const [user, setUser] = useState({ name: '', email: '', profilePicture: '' });
 
   useEffect(() => {
-    const authToken = localStorage.getItem('authToken');
-    const userEmail = localStorage.getItem('userEmail');
-    const userName = localStorage.getItem('userName');
+    const fetchProfile = async () => {
+      const authToken = localStorage.getItem('authToken');
 
-    if (!authToken) {
-      navigate('/signup');
-      return;
-    }
+      console.log('Auth Token:', authToken);
 
-    setUser({ name: userName || 'User', email: userEmail || 'Not Available' });
+      if (!authToken) {
+        console.log('No auth token found. Redirecting to /signup');
+        navigate('/signup');
+        return;
+      }
+
+      try {
+        const response = await axios.get('http://localhost:5000/api/profile', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+
+        console.log('Profile Data:', response.data);
+
+        setUser({
+          name: response.data.name || 'User',
+          email: response.data.email || 'Not Available',
+          profilePicture: response.data.profilePicture || '', // Fetch profile picture URL
+        });
+
+        console.log('User state updated:', {
+          name: response.data.name || 'User',
+          email: response.data.email || 'Not Available',
+          profilePicture: response.data.profilePicture || '',
+        });
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        if (error.response?.status === 401) {
+          navigate('/signup');
+        }
+      }
+    };
+
+    fetchProfile();
   }, [navigate]);
 
   const handleLogout = () => {
+    console.log('Logging out...');
     localStorage.removeItem('authToken');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
@@ -29,7 +59,14 @@ const Dashboard = () => {
     <div style={styles.container}>
       {/* Left Profile Card */}
       <div style={styles.profileCard}>
-        <div style={styles.profileImage}></div>
+        <div
+          style={{
+            ...styles.profileImage,
+            backgroundImage: user.profilePicture ? `url(${user.profilePicture})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        ></div>
         <h2 style={styles.bigText}>Hello, {user.name}!</h2>
         <p style={styles.smallText}>{user.email}</p>
         <div style={styles.stats}>
@@ -49,6 +86,7 @@ const Dashboard = () => {
         <div style={styles.buttonGroup}>
           <button onClick={handleLogout} style={styles.button}>Log Out</button>
           <button onClick={() => navigate('/semester')} style={styles.buttonSecondary}>Semester Marks</button>
+          <button onClick={() => navigate('/mentorgrade')} style={styles.buttonTertiary}>Mentor Grading</button>
         </div>
       </div>
 
@@ -155,6 +193,18 @@ const styles = {
     transition: '0.3s ease-in-out',
     fontWeight: 'bold',
     boxShadow: '0 4px 10px rgba(255, 0, 127, 0.3)',
+  },
+  buttonTertiary: {
+    padding: '14px 28px',
+    backgroundColor: '#28a745',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '18px',
+    cursor: 'pointer',
+    transition: '0.3s ease-in-out',
+    fontWeight: 'bold',
+    boxShadow: '0 4px 10px rgba(40, 167, 69, 0.3)',
   },
   circleOne: {
     position: 'absolute',
