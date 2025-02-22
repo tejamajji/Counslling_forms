@@ -195,7 +195,7 @@ const MarksTable = () => {
 
       <Box display="flex" justifyContent="center" mt={2} gap={2}>
         <Button variant="contained" color={editMode ? "success" : "primary"} onClick={editMode ? handleSave : () => setEditMode(true)}>
-          {editMode ? "Save" : "Edit"}
+          {editMode ? "Save" : "Start Editing"}
         </Button>
         <Button variant="contained" color="primary" onClick={handleNextSemester} disabled={!isSaved || selectedSemester === 8}>
           Next Semester

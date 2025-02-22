@@ -68,7 +68,7 @@ const Profile = () => {
       const token = localStorage.getItem("authToken");
 
       if (!token || isTokenExpired(token)) {
-        navigate("/signin");
+        navigate("/signup");
         return;
       }
 
@@ -80,7 +80,7 @@ const Profile = () => {
         setFormData(response.data);
       } catch (error) {
         if (error.response?.status === 401) {
-          navigate("/signin");
+          navigate("/signup");
         } else {
           setError("Error fetching profile. Please try again.");
         }

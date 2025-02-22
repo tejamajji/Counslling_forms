@@ -21,6 +21,9 @@ const LandingPage = () => {
     container.scrollTo({ left: facultyScroll, behavior: "smooth" });
   };
 
+  const handleExploreClick = () => {
+    window.location.href = "https://www.gvpce.ac.in";
+  };
   return (
     <div style={styles.container}>
       {/* Hero Section */}
@@ -28,7 +31,7 @@ const LandingPage = () => {
         <div style={styles.heroContent}>
           <h1 style={styles.heroTitle}>Welcome to GVP-IT</h1>
           <p style={styles.heroSubtitle}>Revolutionizing IT Education</p>
-          <button style={styles.button}>Explore Now</button>
+          <button style={styles.button} onClick={handleExploreClick}>Explore Now</button>
         </div>
       </section>
 
