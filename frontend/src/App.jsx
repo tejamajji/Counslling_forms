@@ -17,15 +17,15 @@ const ProtectedRoute = ({ element }) => {
 };
 
 const App = () => {
-  const isAuthenticated = localStorage.getItem('authToken');
-  
+  // const isAuthenticated = localStorage.getItem('authToken');  //No need to check authentication here
+
   return (
     <>
       <Router>
         <Header />
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={isAuthenticated ? <Dashboard /> : <LandingPage />} />
+          <Route path="/landingpage" element={<LandingPage />} /> {/* Always render LandingPage on initial load */}
           <Route path="/signup" element={<SignUp />} />
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
@@ -34,13 +34,13 @@ const App = () => {
           <Route path="/semester" element={<MarksTable />} />
           <Route path="/mentorgrade" element={<MentorGrading />} />
 
-          
+
           {/* Add more routes here if needed */}
 
-          
+
         </Routes>
-       
-        
+
+
         <Footer />
       </Router>
     </>

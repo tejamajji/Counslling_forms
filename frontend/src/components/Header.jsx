@@ -1,34 +1,33 @@
 // Header.js
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import gvplog from '../images/gvplogo.jpg'; // Correct import for the logo
 
 const Header = () => {
-  const navigate = useNavigate(); // Hook for navigation
+  const navigate = useNavigate();
+  const location = useLocation(); // Get current location
+  const isLandingPage = location.pathname === '/landingpage';// Check if we're on the landing page
+  const issignupPage = location.pathname === '/signup';// Check if we're on the signup page
   const isAuthenticated = localStorage.getItem('authToken');
   const [profilePicture, setProfilePicture] = useState(null);
 
   useEffect(() => {
-    // Retrieve user profile from localStorage
     const userProfile = JSON.parse(localStorage.getItem('userProfile'));
     if (userProfile && userProfile.profilePicture) {
-      setProfilePicture(userProfile.profilePicture); // Set profile picture if available
+      setProfilePicture(userProfile.profilePicture);
     }
   }, []);
 
   const handleRegisterLogin = () => {
-    // Navigate to /signup when the button is clicked
     navigate('/signup');
   };
 
   const handleProfileClick = () => {
-    // Navigate to /profile when the profile image is clicked
     navigate('/profile');
   };
 
   const handleLogoClick = () => {
-    // Navigate to the landing page
-    navigate('/');
+    navigate('/landingpage');
   };
 
   return (
@@ -36,7 +35,7 @@ const Header = () => {
       {/* Logo */}
       <div style={styles.logoContainer} onClick={handleLogoClick}>
         <img
-          src={gvplog} // Dynamically imported logo
+          src={gvplog}
           alt="GVP Logo"
           style={styles.logoImage}
         />
@@ -47,25 +46,28 @@ const Header = () => {
         GAYATRI VIDYAPARISHAD COLLEGE OF ENGINEERING (AUTONOMOUS)
       </h1>
 
-      {/* Profile Image or Register/Login Button */}
-      {isAuthenticated ? (
+      {/* Conditionally render Register/Login or Profile */}
+      {issignupPage ? <img
+          src={gvplog}
+          alt="GVP Logo"
+          style={styles.logoImage}
+        />  : (isLandingPage || !isAuthenticated) ? (
+        <button onClick={handleRegisterLogin} style={styles.button}>
+          Register / Login
+        </button>
+      ) : (
         <div style={styles.profileContainer} onClick={handleProfileClick}>
           <img
-            src={profilePicture || 'default-profile.png'} // Fallback to a default image if profile picture is unavailable
+            src={profilePicture || 'default-profile.png'}
             alt="Profile"
             style={styles.profileImage}
           />
         </div>
-      ) : (
-        <button onClick={handleRegisterLogin} style={styles.button}>
-          Register / Login
-        </button>
       )}
     </header>
   );
 };
 
-// Inline styles for the component
 const styles = {
   header: {
     display: 'flex',
@@ -78,13 +80,13 @@ const styles = {
   logoContainer: {
     display: 'flex',
     alignItems: 'center',
-    cursor: 'pointer', // Make it clear that the logo is clickable
+    cursor: 'pointer',
   },
   logoImage: {
-    width: '50px', // Adjust as needed
-    height: '50px', // Adjust as needed
-    objectFit: 'cover', // Maintain aspect ratio
-    borderRadius: '50%', // Optional: Makes the logo circular
+    width: '50px',
+    height: '50px',
+    objectFit: 'cover',
+    borderRadius: '50%',
     marginRight: '10px',
   },
   heading: {
@@ -93,13 +95,13 @@ const styles = {
     margin: 0,
   },
   profileContainer: {
-    cursor: 'pointer', // Make the profile container clickable
+    cursor: 'pointer',
   },
   profileImage: {
-    width: '40px', // Adjust as needed
-    height: '40px', // Adjust as needed
-    objectFit: 'cover', // Maintain aspect ratio
-    borderRadius: '50%', // Makes the image circular
+    width: '40px',
+    height: '40px',
+    objectFit: 'cover',
+    borderRadius: '50%',
   },
   button: {
     padding: '10px 20px',
