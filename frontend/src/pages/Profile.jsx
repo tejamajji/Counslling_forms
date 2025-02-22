@@ -39,9 +39,10 @@ const Profile = () => {
         }
 
         const data = await response.json();
-        // Destructure data to separate user and profile
-        const { profile, ...userData } = data;
-        setUser({ ...userData, ...profile }); // Merge both user and profile data
+        // Destructure the response which contains nested user and profile objects.
+        const { user: userData, profile } = data;
+        // Merge the two objects to update the state
+        setUser({ ...userData, ...profile });
       } catch (error) {
         console.error('Error fetching user profile:', error);
         setError('Unable to load profile data. Please try again later.');
@@ -62,7 +63,6 @@ const Profile = () => {
     navigate('/signin');
   };
 
-  // Function to check if a value exists, otherwise return 'N/A'
   const displayValue = (value) => {
     return value && value !== "" ? value : 'N/A';
   };
@@ -84,7 +84,6 @@ const Profile = () => {
       <div className="profile-content">
         <div className="profile-left">
           <div className="profile-picture">
-            {/* Ensure that there's a fallback image URL */}
             <img
               src={user.profilePicture || 'https://via.placeholder.com/150'}
               alt="Profile"
@@ -115,5 +114,3 @@ const Profile = () => {
 };
 
 export default Profile;
-
-

@@ -15,7 +15,7 @@ const app = express();
 // Middleware
 app.use(cors({
     origin: 'http://localhost:3000', // Frontend origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Allowed HTTP methods
     credentials: true, // If cookies or other credentials are needed
 }));
 
