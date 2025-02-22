@@ -7,46 +7,55 @@ const Dashboard = () => {
   const [user, setUser] = useState({ name: '', email: '', profilePicture: '' });
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchUserDetails = async () => {
       const authToken = localStorage.getItem('authToken');
-
-      console.log('Auth Token:', authToken);
-
+  
+      console.log('Auth Token:', authToken); // Debugging: Verify token
+  
       if (!authToken) {
         console.log('No auth token found. Redirecting to /signup');
         navigate('/signup');
         return;
       }
-
+  
       try {
-        const response = await axios.get('http://localhost:5000/api/profile', {
+        // Fetch user details from localStorage
+        const userEmail = localStorage.getItem('userEmail');
+        const userName = localStorage.getItem('userName');
+  
+        console.log("Fetched Email from localStorage:", userEmail); // Debugging
+        console.log("Fetched Username from localStorage:", userName); // Debugging
+  
+        // Update the user state
+        setUser({
+          name: userName || 'User',
+          email: userEmail || 'Not Available',
+          profilePicture: '', // Add profile picture logic if needed
+        });
+  
+        // Optionally, fetch additional details from the backend
+        const response = await axios.get('http://localhost:5000/api/auth/user', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-
-        console.log('Profile Data:', response.data);
-
-        setUser({
-          name: response.data.name || 'User',
-          email: response.data.email || 'Not Available',
-          profilePicture: response.data.profilePicture || '', // Fetch profile picture URL
-        });
-
-        console.log('User state updated:', {
-          name: response.data.name || 'User',
-          email: response.data.email || 'Not Available',
-          profilePicture: response.data.profilePicture || '',
-        });
+  
+        console.log('User Details from Backend:', response.data); // Debugging
+  
+        // Update the user state with backend data (if needed)
+        setUser((prevUser) => ({
+          ...prevUser,
+          name: response.data.username || prevUser.name,
+          email: response.data.email || prevUser.email,
+        }));
       } catch (error) {
-        console.error('Error fetching profile:', error);
+        console.error('Error fetching user details:', error);
         if (error.response?.status === 401) {
           navigate('/signup');
         }
       }
     };
-
-    fetchProfile();
+  
+    fetchUserDetails();
   }, [navigate]);
-
   const handleLogout = () => {
     console.log('Logging out...');
     localStorage.removeItem('authToken');
@@ -68,7 +77,7 @@ const Dashboard = () => {
           }}
         ></div>
         <h2 style={styles.bigText}>Hello, {user.name}!</h2>
-        <p style={styles.smallText}>{user.email}</p>
+        <p style={styles.smallText}>{user.email}</p> {/* Display the email */}
         <div style={styles.stats}>
           <p><strong>⭐ Projects:</strong> 12</p>
           <p><strong>🎯 Achievements:</strong> 5</p>

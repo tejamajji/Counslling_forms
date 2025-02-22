@@ -75,26 +75,46 @@ const Auth = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
   
+    if (isSignUp && formData.password !== formData.confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+  
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signin`, {
+      const url = `${process.env.REACT_APP_API_URL}/api/auth/${isSignUp ? 'signup' : 'signin'}`;
+      const body = isSignUp
+        ? {
+            username: formData.fullName,
+            email: formData.email,
+            password: formData.password,
+          }
+        : {
+            email: formData.email,
+            password: formData.password,
+          };
+  
+      console.log('Request Payload:', body); // Log the payload
+  
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+        body: JSON.stringify(body),
       });
   
       const data = await response.json();
+      console.log('Server Response:', data); // Log the server response
   
       if (response.ok) {
-        localStorage.setItem('authToken', data.token); // Store the token
-        localStorage.setItem('userEmail', formData.email); // Store user email (optional)
-        navigate('/dashboard'); // Redirect to dashboard
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('userEmail', data.email); // Store email from response
+        localStorage.setItem('userName', data.username); // Store username from response
+        console.log("Stored Email:", data.email); // Debugging
+        console.log("Stored Username:", data.username); // Debugging
+        navigate('/dashboard');
       } else {
-        setError(data.message || 'Something went wrong');
+        setError(data.error || 'Something went wrong');
       }
     } catch (err) {
       setError('Server error, please try again later');
