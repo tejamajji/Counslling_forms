@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaUserGraduate } from 'react-icons/fa'; // Import an icon from react-icons
 import './css/SignUp.css'; // Import CSS file
 
 const Auth = () => {
   const navigate = useNavigate();
+  const formRef = useRef(null);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -13,7 +15,7 @@ const Auth = () => {
   });
 
   const [error, setError] = useState('');
-  const [isSignUp, setIsSignUp] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
 
   const images = [
@@ -24,20 +26,44 @@ const Auth = () => {
     "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/22.jpg",
     "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/23.jpg",
   ];
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImage((prevIndex) => (prevIndex + 1) % images.length);
     }, 3000);
-  
+
     return () => clearInterval(interval);
-  }, [images.length]); // ✅ Added images.length as a dependency
-  
+  }, [images.length]);
+
+  useEffect(() => {
+    if (formRef.current) {
+      const inputs = formRef.current.querySelectorAll('input');
+      inputs[0]?.focus(); // Focus the first input when the form toggles
+    }
+  }, [isSignUp]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
       [name]: value,
     });
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const inputs = formRef.current.querySelectorAll('input');
+      const currentIndex = Array.from(inputs).indexOf(document.activeElement);
+
+      if (e.key === 'ArrowDown') {
+        const nextIndex = (currentIndex + 1) % inputs.length;
+        inputs[nextIndex]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        const prevIndex = (currentIndex - 1 + inputs.length) % inputs.length;
+        inputs[prevIndex]?.focus();
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -68,8 +94,7 @@ const Auth = () => {
 
       if (response.ok) {
         localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userEmail', formData.email); // ✅ Store user email
-        console.log("Stored Email:", formData.email); // Debugging
+        localStorage.setItem('userEmail', formData.email);
         navigate('/dashboard');
       } else {
         setError(data.message || 'Something went wrong');
@@ -80,62 +105,74 @@ const Auth = () => {
   };
 
   return (
-    <div className="container">
-      <div className="imageContainer">
-        <img src={images[currentImage]} alt="Slideshow" className="image" />
+    <div className="auth-container">
+      <div className="auth-background">
+        <img src={images[currentImage]} alt="Slideshow" className="auth-image" />
       </div>
 
-      <div className="formContainer">
-        <div className="card">
-          <h2 className="heading">{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
-          {error && <p className="error">{error}</p>}
-          <form onSubmit={handleSubmit} className="form">
-            {isSignUp && (
+      <div className={`auth-form-container ${isSignUp ? 'signup' : 'signin'}`}>
+        <div className="auth-form-wrapper">
+          {/* Left Side (70% - Form) */}
+          <div className="auth-form-main">
+            <h2>{isSignUp ? 'Sign Up' : 'Sign In'}</h2>
+            {error && <p className="auth-error">{error}</p>}
+            <form onSubmit={handleSubmit} className="auth-form" ref={formRef} onKeyDown={handleKeyDown}>
+              {isSignUp && (
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder="Full Name"
+                  className="auth-input"
+                  required
+                />
+              )}
               <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleChange}
-                placeholder="Full Name"
-                className="input"
+                placeholder="Email"
+                className="auth-input"
                 required
               />
-            )}
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Email"
-              className="input"
-              required
-            />
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Password"
-              className="input"
-              required
-            />
-            {isSignUp && (
               <input
                 type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
+                name="password"
+                value={formData.password}
                 onChange={handleChange}
-                placeholder="Confirm Password"
-                className="input"
+                placeholder="Password"
+                className="auth-input"
                 required
               />
-            )}
-            <button type="submit" className="button">{isSignUp ? 'Sign Up' : 'Sign In'}</button>
-          </form>
+              {isSignUp && (
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm Password"
+                  className="auth-input"
+                  required
+                />
+              )}
+              <button type="submit" className="auth-button">
+                {isSignUp ? 'Sign Up' : 'Sign In'}
+              </button>
+            </form>
+          </div>
 
-          <p className="toggleText" onClick={() => setIsSignUp(!isSignUp)}>
-            {isSignUp ? 'Already have an account? Sign In' : 'Don’t have an account? Sign Up'}
-          </p>
+          {/* Right Side (30% - Redirection Div) */}
+          <div className="auth-form-side">
+             <div className="auth-form-icon">
+              <FaUserGraduate size={50} color="#e50914" />
+            </div>
+            <h2>{isSignUp ? 'Already have an account?' : 'Don’t have an account?'}</h2>
+            <p onClick={() => setIsSignUp(!isSignUp)}>
+              {isSignUp ? 'Sign In' : 'Create One'}
+            </p>
+          </div>
         </div>
       </div>
     </div>
