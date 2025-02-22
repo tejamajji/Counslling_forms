@@ -6,7 +6,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
-import EditProfile from './pages/EditProfile';
 import MarksTable from './pages/MarksTable';
 import CounselingForm from './pages/CounselingForm';
 import MentorGrading from './pages/MentorGrading';
@@ -31,7 +30,6 @@ const App = () => {
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
-          <Route path="/edit-profile" element={<ProtectedRoute element={<EditProfile />} />} />
           <Route path="/counseling-form" element={<ProtectedRoute element={<CounselingForm />} />} />
           <Route path="/semester" element={<MarksTable />} />
           <Route path="/mentorgrade" element={<MentorGrading />} />

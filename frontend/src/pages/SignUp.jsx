@@ -27,6 +27,7 @@ const Auth = () => {
     "https://www.gvpce.ac.in/slideshow/home/Homepageslideshowphotos/2.College&Departments/23.jpg",
   ];
 
+  // Automatically cycle through images
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImage((prevIndex) => (prevIndex + 1) % images.length);
@@ -35,21 +36,25 @@ const Auth = () => {
     return () => clearInterval(interval);
   }, [images.length]);
 
+  // Focus the first input when the form toggles
   useEffect(() => {
     if (formRef.current) {
       const inputs = formRef.current.querySelectorAll('input');
-      inputs[0]?.focus(); // Focus the first input when the form toggles
+      inputs[0]?.focus(); // Focus the first input
     }
   }, [isSignUp]);
 
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
       [name]: value,
     });
+    setError(''); // Clear error on input change
   };
 
+  // Handle keyboard navigation (ArrowUp and ArrowDown)
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -66,36 +71,28 @@ const Auth = () => {
     }
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (isSignUp && formData.password !== formData.confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
-
+  
     try {
-      const url = `${process.env.REACT_APP_API_URL}/api/auth/${isSignUp ? 'signup' : 'signin'}`;
-      const body = {
-        username: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-      };
-
-      const response = await fetch(url, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
       });
-
+  
       const data = await response.json();
-
+  
       if (response.ok) {
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userEmail', formData.email);
-        navigate('/dashboard');
+        localStorage.setItem('authToken', data.token); // Store the token
+        localStorage.setItem('userEmail', formData.email); // Store user email (optional)
+        navigate('/dashboard'); // Redirect to dashboard
       } else {
         setError(data.message || 'Something went wrong');
       }
@@ -106,10 +103,12 @@ const Auth = () => {
 
   return (
     <div className="auth-container">
+      {/* Background Image Slideshow */}
       <div className="auth-background">
         <img src={images[currentImage]} alt="Slideshow" className="auth-image" />
       </div>
 
+      {/* Form Container */}
       <div className={`auth-form-container ${isSignUp ? 'signup' : 'signin'}`}>
         <div className="auth-form-wrapper">
           {/* Left Side (70% - Form) */}
@@ -165,7 +164,7 @@ const Auth = () => {
 
           {/* Right Side (30% - Redirection Div) */}
           <div className="auth-form-side">
-             <div className="auth-form-icon">
+            <div className="auth-form-icon">
               <FaUserGraduate size={50} color="#e50914" />
             </div>
             <h2>{isSignUp ? 'Already have an account?' : 'Don’t have an account?'}</h2>
@@ -178,6 +177,5 @@ const Auth = () => {
     </div>
   );
 };
-
 
 export default Auth;

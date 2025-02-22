@@ -4,9 +4,8 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
-//const semesterRoutes = require('./routes/marks');  // Updated route name
 const adminRoutes = require('./routes/admin');
-const semesterRoutes = require('./routes/semester');  // Updated route name
+const semesterRoutes = require('./routes/semester');
 const mentorGradingRouter = require('./routes/mentorGradingSchema');
 
 dotenv.config();
@@ -14,12 +13,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:3000', // Frontend origin
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Allowed HTTP methods
-    credentials: true, // If cookies or other credentials are needed
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    credentials: true,
 }));
 
-app.use(express.json());  // Parse incoming requests with JSON payloads
+// Increase payload size limit
+app.use(express.json({ limit: '50mb' }));  
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Connect to DB
 connectDB();
@@ -32,7 +33,7 @@ app.get('/test', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/semester', semesterRoutes);  // Updated endpoint to match unified semester logic
+app.use('/api/semester', semesterRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mentorGrading', mentorGradingRouter);
 
