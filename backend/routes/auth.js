@@ -68,18 +68,26 @@ router.post('/signin', async (req, res) => {
 // Fetch user details (email and username)
 router.get('/user', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('username email'); // Fetch only username and email
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    // Fetch user details
+    const user = await User.findById(req.user.id).select('-password');
+
+    // Fetch profile details
+    const profile = await Profile.findOne({ userId: req.user.id });
+
+    if (!user || !profile) {
+      return res.status(404).json({ error: 'User or profile not found' });
     }
 
-    res.json({ username: user.username, email: user.email });
+    // Return both user and profile data
+    res.status(200).json({
+      username: user.username,
+      email: user.email,
+      profilePicture: profile.profilePicture, // Include profile picture from the Profile schema
+    });
   } catch (err) {
-    console.error('Error fetching user details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Logout
 router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
