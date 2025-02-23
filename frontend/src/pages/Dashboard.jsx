@@ -9,43 +9,44 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchUserDetails = async () => {
       const authToken = localStorage.getItem('authToken');
-  
-      console.log('Auth Token:', authToken); // Debugging: Verify token
-  
+    
       if (!authToken) {
         console.log('No auth token found. Redirecting to /signup');
         navigate('/signup');
         return;
       }
-  
+    
       try {
         // Fetch user details from localStorage
         const userEmail = localStorage.getItem('userEmail');
         const userName = localStorage.getItem('userName');
-  
+    
         console.log("Fetched Email from localStorage:", userEmail); // Debugging
         console.log("Fetched Username from localStorage:", userName); // Debugging
-  
-        // Update the user state
+    
+        // Update the user state with localStorage data
         setUser({
           name: userName || 'User',
           email: userEmail || 'Not Available',
-          profilePicture: '', // Add profile picture logic if needed
+          profilePicture: '', // Initialize profile picture as empty
         });
-  
-        // Optionally, fetch additional details from the backend
+    
+        // Fetch additional details from the backend
         const response = await axios.get('http://localhost:5000/api/auth/user', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-  
+    
         console.log('User Details from Backend:', response.data); // Debugging
-  
-        // Update the user state with backend data (if needed)
+    
+        // Update the user state with backend data
         setUser((prevUser) => ({
           ...prevUser,
           name: response.data.username || prevUser.name,
           email: response.data.email || prevUser.email,
+          profilePicture: response.data.profilePicture || prevUser.profilePicture, // Update profile picture
         }));
+    
+        console.log('Updated User State:', user); // Debugging
       } catch (error) {
         console.error('Error fetching user details:', error);
         if (error.response?.status === 401) {
@@ -53,7 +54,6 @@ const Dashboard = () => {
         }
       }
     };
-  
     fetchUserDetails();
   }, [navigate]);
   const handleLogout = () => {
