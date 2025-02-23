@@ -25,7 +25,8 @@ const App = () => {
         <Header />
         <Routes>
           {/* Public Routes */}
-          <Route path="/landingpage" element={<LandingPage />} /> {/* Always render LandingPage on initial load */}
+          <Route path="/" element={<Navigate to="/landingpage" />} /> {/* Redirect to landing page */}
+          <Route path="/landingpage" element={<LandingPage />} />
           <Route path="/signup" element={<SignUp />} />
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
