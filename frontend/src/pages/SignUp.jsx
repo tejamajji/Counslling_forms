@@ -188,9 +188,17 @@ const Auth = () => {
               <FaUserGraduate size={50} color="#e50914" />
             </div>
             <h2>{isSignUp ? 'Already have an account?' : 'Don’t have an account?'}</h2>
-            <p onClick={() => setIsSignUp(!isSignUp)}>
-              {isSignUp ? 'Sign In' : 'Create One'}
-            </p>
+            <div
+              onClick={() => setIsSignUp(!isSignUp)}
+              style={{
+                padding: '1cm',
+                cursor: 'pointer',
+                display: 'inline-block',
+                textAlign: 'center'
+              }}
+            >
+              <p style={{ margin: 0 }}>{isSignUp ? 'Sign In' : 'Create One'}</p>
+            </div>
           </div>
         </div>
       </div>
