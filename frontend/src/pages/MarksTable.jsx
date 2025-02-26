@@ -82,9 +82,9 @@ const MarksTable = () => {
     if (field === "ext") {
       updated[index] = { ...updated[index], [field]: value };
     } else {
-      updated[index] = { 
-        ...updated[index], 
-        [field]: Math.min(30, Math.max(0, Number(value))) 
+      updated[index] = {
+        ...updated[index],
+        [field]: Math.min(30, Math.max(0, Number(value)))
       };
     }
     setUpdatedMarks(updated);
@@ -133,6 +133,10 @@ const MarksTable = () => {
     navigate("/dashboard");
   };
 
+  const toggleEditMode = () => {
+    setEditMode(!editMode);
+  };
+
   if (loading)
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
@@ -154,6 +158,9 @@ const MarksTable = () => {
         <Typography variant="h6">
           Semester {selectedSemester}
         </Typography>
+        <Button variant="contained" color={editMode ? "success" : "primary"} onClick={toggleEditMode}>
+          {editMode ? "Edit" : "Start Editing"}
+        </Button>
       </Box>
 
       <Typography variant="h5" align="center" gutterBottom>
@@ -194,9 +201,11 @@ const MarksTable = () => {
       </TableContainer>
 
       <Box display="flex" justifyContent="center" mt={2} gap={2}>
-        <Button variant="contained" color={editMode ? "success" : "primary"} onClick={editMode ? handleSave : () => setEditMode(true)}>
-          {editMode ? "Save" : "Start Editing"}
-        </Button>
+        {editMode && (
+          <Button variant="contained" color="success" onClick={handleSave}>
+            Save
+          </Button>
+        )}
         <Button variant="contained" color="primary" onClick={handleNextSemester} disabled={!isSaved || selectedSemester === 8}>
           Next Semester
         </Button>
