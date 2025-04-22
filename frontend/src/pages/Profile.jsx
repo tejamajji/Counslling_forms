@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import "./css/Profile.css"; // We'll create this CSS file separately
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
@@ -41,6 +42,7 @@ const Profile = () => {
   const [error, setError] = useState("");
   const [isNewUser, setIsNewUser] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState("basic");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -170,337 +172,464 @@ const Profile = () => {
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div className="loading-spinner"></div>;
   }
 
-  return (
-    <div>
-      <h1>{isNewUser ? "Create Profile" : "Your Profile"}</h1>
+  const renderTabContent = () => {
+    switch(activeTab) {
+      case 'basic':
+        return (
+          <div className="tab-content">
+            <div className="form-row">
+              <div className="form-group">
+                <label>Name:</label>
+                <input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Registration Number:</label>
+                <input
+                  name="regdNo"
+                  value={formData.regdNo}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Section:</label>
+                <input
+                  name="section"
+                  value={formData.section}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Mobile Number:</label>
+                <input
+                  name="mobileNumber"
+                  value={formData.mobileNumber}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Email:</label>
+                <input
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  disabled // Email comes from user account
+                  className="disabled-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>Admission Type:</label>
+                <select
+                  name="admissionType"
+                  value={formData.admissionType}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                >
+                  <option value="Convener">Convener</option>
+                  <option value="Management">Management</option>
+                  <option value="Category-B">Category-B</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Caste:</label>
+                <input
+                  name="caste"
+                  value={formData.caste}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Rank:</label>
+                <input
+                  name="rank"
+                  value={formData.rank}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Date of Birth:</label>
+                <input
+                  name="dob"
+                  type="date"
+                  value={formData.dob}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Blood Group:</label>
+                <input
+                  name="bloodGroup"
+                  value={formData.bloodGroup}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+          </div>
+        );
       
-      {error && <div style={{ color: "red" }}>{error}</div>}
+      case 'academic':
+        return (
+          <div className="tab-content">
+            <div className="card">
+              <h3>10th Marks</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Obtained:</label>
+                  <input
+                    type="number"
+                    value={formData.tenthMarks.obtained}
+                    onChange={(e) => handleNestedChange("tenthMarks", "obtained", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Max:</label>
+                  <input
+                    type="number"
+                    value={formData.tenthMarks.max}
+                    onChange={(e) => handleNestedChange("tenthMarks", "max", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Percentage:</label>
+                  <div className="input-with-suffix">
+                    <input
+                      type="number"
+                      value={formData.tenthMarks.percentage}
+                      onChange={(e) => handleNestedChange("tenthMarks", "percentage", e.target.value)}
+                      disabled={!isEditing && !isNewUser}
+                    />
+                    <span className="input-suffix">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="card">
+              <h3>Inter/Diploma Marks</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Obtained:</label>
+                  <input
+                    type="number"
+                    value={formData.interDiplomaMarks.obtained}
+                    onChange={(e) => handleNestedChange("interDiplomaMarks", "obtained", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Max:</label>
+                  <input
+                    type="number"
+                    value={formData.interDiplomaMarks.max}
+                    onChange={(e) => handleNestedChange("interDiplomaMarks", "max", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Percentage:</label>
+                  <div className="input-with-suffix">
+                    <input
+                      type="number"
+                      value={formData.interDiplomaMarks.percentage}
+                      onChange={(e) => handleNestedChange("interDiplomaMarks", "percentage", e.target.value)}
+                      disabled={!isEditing && !isNewUser}
+                    />
+                    <span className="input-suffix">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'family':
+        return (
+          <div className="tab-content">
+            <div className="card">
+              <h3>Parent Details</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Name:</label>
+                  <input
+                    value={formData.parentDetails.name}
+                    onChange={(e) => handleNestedChange("parentDetails", "name", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Occupation:</label>
+                  <input
+                    value={formData.parentDetails.occupation}
+                    onChange={(e) => handleNestedChange("parentDetails", "occupation", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group full-width">
+                <label>Address:</label>
+                <input
+                  value={formData.parentDetails.address}
+                  onChange={(e) => handleNestedChange("parentDetails", "address", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Contact Number:</label>
+                  <input
+                    value={formData.parentDetails.contactNumber}
+                    onChange={(e) => handleNestedChange("parentDetails", "contactNumber", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email:</label>
+                  <input
+                    value={formData.parentDetails.email}
+                    onChange={(e) => handleNestedChange("parentDetails", "email", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="card">
+              <h3>Local Guardian</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Name:</label>
+                  <input
+                    value={formData.localGuardian.name}
+                    onChange={(e) => handleNestedChange("localGuardian", "name", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Contact Number:</label>
+                  <input
+                    value={formData.localGuardian.contactNumber}
+                    onChange={(e) => handleNestedChange("localGuardian", "contactNumber", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group full-width">
+                <label>Address:</label>
+                <input
+                  value={formData.localGuardian.address}
+                  onChange={(e) => handleNestedChange("localGuardian", "address", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'extra':
+        return (
+          <div className="tab-content">
+            <div className="card">
+              <h3>Hobbies</h3>
+              <div className="form-group full-width">
+                <label>Hobbies (comma separated):</label>
+                <input
+                  value={formData.hobbies.join(", ")}
+                  onChange={(e) => setFormData({...formData, hobbies: e.target.value.split(",").map(item => item.trim())})}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Reading, Swimming, Chess"
+                />
+              </div>
+            </div>
+            
+            <div className="card">
+              <h3>Extra-Curricular Activities</h3>
+              <div className="form-group full-width">
+                <label>Games & Activities (comma separated):</label>
+                <input
+                  value={formData.participation.gamesAndActivities.join(", ")}
+                  onChange={(e) => handleArrayChange("participation", "gamesAndActivities", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Basketball, Swimming, Drama Club"
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Literary Activities (comma separated):</label>
+                <input
+                  value={formData.participation.literary.join(", ")}
+                  onChange={(e) => handleArrayChange("participation", "literary", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Debate, Poetry, Creative Writing"
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Technical Activities (comma separated):</label>
+                <input
+                  value={formData.participation.technical.join(", ")}
+                  onChange={(e) => handleArrayChange("participation", "technical", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Robotics, Coding, Electronics"
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
 
-      <div>
-        {!isEditing && !isNewUser ? (
-          <button onClick={() => setIsEditing(true)}>Edit Profile</button>
-        ) : (
-          <div>
-            <button onClick={handleSubmit}>Save</button>
-            <button onClick={() => {
-              if (isNewUser) {
-                setFormData({
-                  ...formData,
-                  email: profile?.email || ""
-                });
-              } else {
-                setFormData(profile);
-                setIsEditing(false);
-              }
-            }}>
-              Cancel
+  return (
+    <div className="profile-container">
+      <div className="profile-header">
+        <h1>{isNewUser ? "Create Profile" : "Student Profile"}</h1>
+        <button 
+          className="btn btn-secondary"
+          onClick={() => navigate("/dashboard")}
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="profile-content">
+        <div className="profile-sidebar">
+          <div className="profile-picture-container">
+            {formData.profilePicture ? (
+              <img 
+                src={formData.profilePicture} 
+                alt="Profile" 
+                className="profile-picture"
+              />
+            ) : (
+              <div className="profile-picture-placeholder">
+                {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
+              </div>
+            )}
+            
+            {(isEditing || isNewUser) && (
+              <div className="profile-picture-upload">
+                <label className="upload-btn">
+                  Change Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData({...formData, profilePicture: reader.result});
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+          
+          <div className="profile-actions">
+            {!isEditing && !isNewUser ? (
+              <button 
+                className="btn btn-primary"
+                onClick={() => setIsEditing(true)}
+              >
+                Edit Profile
+              </button>
+            ) : (
+              <div className="action-buttons">
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleSubmit}
+                >
+                  Save Profile
+                </button>
+                <button 
+                  className="btn btn-outline"
+                  onClick={() => {
+                    if (isNewUser) {
+                      setFormData({
+                        ...formData,
+                        email: profile?.email || ""
+                      });
+                    } else {
+                      setFormData(profile);
+                      setIsEditing(false);
+                    }
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="profile-nav">
+            <button 
+              className={`nav-item ${activeTab === 'basic' ? 'active' : ''}`}
+              onClick={() => setActiveTab('basic')}
+            >
+              Basic Details
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'academic' ? 'active' : ''}`}
+              onClick={() => setActiveTab('academic')}
+            >
+              Academic Details
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'family' ? 'active' : ''}`}
+              onClick={() => setActiveTab('family')}
+            >
+              Family Information
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'extra' ? 'active' : ''}`}
+              onClick={() => setActiveTab('extra')}
+            >
+              Extra-Curricular
             </button>
           </div>
-        )}
-      </div>
-
-      <div>
-        <h2>Basic Details</h2>
-        <div>
-          <label>Name:</label>
-          <input
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
         </div>
-        <div>
-          <label>Registration Number:</label>
-          <input
-            name="regdNo"
-            value={formData.regdNo}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Section:</label>
-          <input
-            name="section"
-            value={formData.section}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Mobile Number:</label>
-          <input
-            name="mobileNumber"
-            value={formData.mobileNumber}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Email:</label>
-          <input
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            disabled // Email comes from user account
-          />
-        </div>
-        <div>
-          <label>Admission Type:</label>
-          <select
-            name="admissionType"
-            value={formData.admissionType}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          >
-            <option value="Convener">Convener</option>
-            <option value="Management">Management</option>
-            <option value="Category-B">Category-B</option>
-          </select>
-        </div>
-        <div>
-          <label>Caste:</label>
-          <input
-            name="caste"
-            value={formData.caste}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Rank:</label>
-          <input
-            name="rank"
-            value={formData.rank}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Date of Birth:</label>
-          <input
-            name="dob"
-            value={formData.dob}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Blood Group:</label>
-          <input
-            name="bloodGroup"
-            value={formData.bloodGroup}
-            onChange={handleInputChange}
-            disabled={!isEditing && !isNewUser}
-          />
+        
+        <div className="profile-details">
+          {renderTabContent()}
         </div>
       </div>
-
-      <div>
-        <h2>Academic Details</h2>
-        <h3>10th Marks</h3>
-        <div>
-          <label>Obtained:</label>
-          <input
-            type="number"
-            value={formData.tenthMarks.obtained}
-            onChange={(e) => handleNestedChange("tenthMarks", "obtained", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Max:</label>
-          <input
-            type="number"
-            value={formData.tenthMarks.max}
-            onChange={(e) => handleNestedChange("tenthMarks", "max", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Percentage:</label>
-          <input
-            type="number"
-            value={formData.tenthMarks.percentage}
-            onChange={(e) => handleNestedChange("tenthMarks", "percentage", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />%
-        </div>
-
-        <h3>Inter/Diploma Marks</h3>
-        <div>
-          <label>Obtained:</label>
-          <input
-            type="number"
-            value={formData.interDiplomaMarks.obtained}
-            onChange={(e) => handleNestedChange("interDiplomaMarks", "obtained", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Max:</label>
-          <input
-            type="number"
-            value={formData.interDiplomaMarks.max}
-            onChange={(e) => handleNestedChange("interDiplomaMarks", "max", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Percentage:</label>
-          <input
-            type="number"
-            value={formData.interDiplomaMarks.percentage}
-            onChange={(e) => handleNestedChange("interDiplomaMarks", "percentage", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />%
-        </div>
-      </div>
-
-      <div>
-        <h2>Parent Details</h2>
-        <div>
-          <label>Name:</label>
-          <input
-            value={formData.parentDetails.name}
-            onChange={(e) => handleNestedChange("parentDetails", "name", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Address:</label>
-          <input
-            value={formData.parentDetails.address}
-            onChange={(e) => handleNestedChange("parentDetails", "address", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Occupation:</label>
-          <input
-            value={formData.parentDetails.occupation}
-            onChange={(e) => handleNestedChange("parentDetails", "occupation", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Contact Number:</label>
-          <input
-            value={formData.parentDetails.contactNumber}
-            onChange={(e) => handleNestedChange("parentDetails", "contactNumber", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Email:</label>
-          <input
-            value={formData.parentDetails.email}
-            onChange={(e) => handleNestedChange("parentDetails", "email", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-      </div>
-
-      <div>
-        <h2>Local Guardian</h2>
-        <div>
-          <label>Name:</label>
-          <input
-            value={formData.localGuardian.name}
-            onChange={(e) => handleNestedChange("localGuardian", "name", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Address:</label>
-          <input
-            value={formData.localGuardian.address}
-            onChange={(e) => handleNestedChange("localGuardian", "address", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Contact Number:</label>
-          <input
-            value={formData.localGuardian.contactNumber}
-            onChange={(e) => handleNestedChange("localGuardian", "contactNumber", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-      </div>
-
-      <div>
-        <h2>Hobbies</h2>
-        <div>
-          <label>Hobbies (comma separated):</label>
-          <input
-  value={formData.hobbies.join(", ")}
-  onChange={(e) => setFormData({...formData, hobbies: e.target.value.split(",").map(item => item.trim())})}
-  disabled={!isEditing && !isNewUser}
-/>
-        </div>
-      </div>
-
-      <div>
-        <h2>Participation</h2>
-        <div>
-          <label>Games & Activities (comma separated):</label>
-          <input
-            value={formData.participation.gamesAndActivities.join(", ")}
-            onChange={(e) => handleArrayChange("participation", "gamesAndActivities", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Literary (comma separated):</label>
-          <input
-            value={formData.participation.literary.join(", ")}
-            onChange={(e) => handleArrayChange("participation", "literary", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-        <div>
-          <label>Technical (comma separated):</label>
-          <input
-            value={formData.participation.technical.join(", ")}
-            onChange={(e) => handleArrayChange("participation", "technical", e.target.value)}
-            disabled={!isEditing && !isNewUser}
-          />
-        </div>
-      </div>
-
-      <div>
-        <h2>Profile Picture</h2>
-        {formData.profilePicture && (
-          <img 
-            src={formData.profilePicture} 
-            alt="Profile" 
-            style={{ width: "100px", height: "100px" }}
-          />
-        )}
-        {(isEditing || isNewUser) && (
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  setFormData({...formData, profilePicture: reader.result});
-                };
-                reader.readAsDataURL(file);
-              }
-            }}
-          />
-        )}
-      </div>
-
-      <button onClick={() => navigate("/dashboard")}>Back to Dashboard</button>
     </div>
   );
 };
