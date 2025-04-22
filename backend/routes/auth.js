@@ -15,80 +15,127 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Add the decoded user payload to the request object
+    req.user = decoded;
     next();
   } catch (err) {
     res.status(400).json({ error: 'Invalid token' });
   }
 };
 
-// Signup
+// Enhanced Signup with new user flag
 router.post('/signup', async (req, res) => {
   const { username, email, password } = req.body;
 
   try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
+    // Check if user exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ 
+        error: 'User already exists',
+        isNewUser: false
+      });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, email, password: hashedPassword });
-    await newUser.save();
+    // Create new user with isNew flag
+    user = new User({
+      username,
+      email,
+      password: await bcrypt.hash(password, 10),
+      isNewUser: true  // Flagging new users
+    });
 
-    // Return username and email in the response
-    res.status(201).json({
-      message: 'User registered successfully',
-      userId: newUser._id,
-      username: newUser.username,
-      email: newUser.email,
+    await user.save();
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { 
+      expiresIn: '1h' 
+    });
+
+    res.status(201).json({ 
+      token, 
+      username: user.username, 
+      email: user.email,
+      hasProfile: false,
+      isNewUser: true  // Explicitly indicating this is a new user
     });
   } catch (err) {
-    console.error('Error in /signup:', err);
-    res.status(500).json({ error: 'Server error', details: err.message });
+    res.status(500).json({ 
+      error: 'Server error during signup',
+      isNewUser: false
+    });
   }
 });
 
-// Signin
+// Enhanced Signin with new user check
 router.post('/signin', async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ 
+      error: 'User not found',
+      isNewUser: false
+    });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+    if (!isMatch) return res.status(400).json({ 
+      error: 'Invalid credentials',
+      isNewUser: false
+    });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token, username: user.username, email: user.email }); // Return username and email
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { 
+      expiresIn: '1h' 
+    });
+    
+    const profile = await Profile.findOne({ userId: user._id });
+    
+    res.json({ 
+      token, 
+      username: user.username, 
+      email: user.email,
+      hasProfile: !!profile,
+      isNewUser: user.isNewUser || false  // Return new user status
+    });
+
+    // Update isNewUser flag after first login if needed
+    if (user.isNewUser) {
+      user.isNewUser = false;
+      await user.save();
+    }
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      error: 'Server error',
+      isNewUser: false
+    });
   }
 });
 
-// Fetch user details (email and username)
+// Enhanced User Details with new user flag
 router.get('/user', authMiddleware, async (req, res) => {
   try {
-    // Fetch user details
     const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ 
+      error: 'User not found',
+      isNewUser: false
+    });
 
-    // Fetch profile details
     const profile = await Profile.findOne({ userId: req.user.id });
-
-    if (!user || !profile) {
-      return res.status(404).json({ error: 'User or profile not found' });
-    }
-
-    // Return both user and profile data
+    
     res.status(200).json({
       username: user.username,
       email: user.email,
-      profilePicture: profile.profilePicture, // Include profile picture from the Profile schema
+      hasProfile: !!profile,
+      profilePicture: profile?.profilePicture || null,
+      isNewUser: user.isNewUser || false  // Include new user status
     });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      error: 'Server error',
+      isNewUser: false
+    });
   }
 });
-// Logout
+
+// Logout remains unchanged
 router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });
