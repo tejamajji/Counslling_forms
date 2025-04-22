@@ -15,6 +15,14 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Helper function for error responses
+const errorResponse = (res, status, message) => {
+  return res.status(status).json({ 
+    success: false,
+    error: message 
+  });
+};
+
 /**
  * @route GET /api/profile
  * @desc Get logged-in user's profile
@@ -22,11 +30,25 @@ cloudinary.config({
  */
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const profile = await Profile.findOne({ userId: req.user.id });
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
-    res.status(200).json(profile);
+    const profile = await Profile.findOne({ userId: req.user.id })
+      .populate('userId', 'username email'); // Populate basic user info
+
+    if (!profile) {
+      return res.status(200).json({ 
+        success: true,
+        hasProfile: false,
+        message: "No profile found for this user" 
+      });
+    }
+    
+    return res.status(200).json({
+      success: true,
+      hasProfile: true,
+      profile: profile.toObject()
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Profile fetch error:", err);
+    return errorResponse(res, 500, "Server error while fetching profile");
   }
 });
 
@@ -37,11 +59,20 @@ router.get("/", authMiddleware, async (req, res) => {
  */
 router.get("/:regdNo", authMiddleware, async (req, res) => {
   try {
-    const profile = await Profile.findOne({ regdNo: req.params.regdNo });
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
-    res.status(200).json(profile);
+    const profile = await Profile.findOne({ regdNo: req.params.regdNo })
+      .populate('userId', 'username email');
+
+    if (!profile) {
+      return errorResponse(res, 404, "Profile not found");
+    }
+
+    return res.status(200).json({
+      success: true,
+      profile
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Profile fetch by regdNo error:", err);
+    return errorResponse(res, 500, "Server error");
   }
 });
 
@@ -52,46 +83,55 @@ router.get("/:regdNo", authMiddleware, async (req, res) => {
  */
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { name, regdNo, section, mobileNumber, email, admissionType, caste, rank, dob, bloodGroup, tenthMarks, interDiplomaMarks, parentDetails, localGuardian, hobbies, participation, profilePicture, attendance } = req.body;
-
-    if (!name || !regdNo || !email) {
-      return res.status(400).json({ error: "Required fields are missing" });
+    const requiredFields = ['name', 'regdNo', 'section', 'mobileNumber', 'email'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
+      return errorResponse(res, 400, `Missing required fields: ${missingFields.join(', ')}`);
     }
 
     // Check if profile already exists
-    const existingProfile = await Profile.findOne({ userId: req.user.id });
-    if (existingProfile) {
-      return res.status(400).json({ error: "Profile already exists. Use PATCH to update." });
-    }
-
-    // Create new profile
-    const newProfile = new Profile({
-      userId: req.user.id,
-      name,
-      regdNo,
-      section,
-      mobileNumber,
-      email,
-      admissionType,
-      caste,
-      rank,
-      dob,
-      bloodGroup,
-      tenthMarks,
-      interDiplomaMarks,
-      parentDetails,
-      localGuardian,
-      hobbies,
-      participation,
-      profilePicture,
-      attendance
+    const existingProfile = await Profile.findOne({ 
+      $or: [
+        { userId: req.user.id },
+        { regdNo: req.body.regdNo }
+      ]
     });
 
-    await newProfile.save();
-    res.status(201).json(newProfile);
+    if (existingProfile) {
+      return errorResponse(res, 400, "Profile already exists for this user or registration number");
+    }
+
+    // Get user info to ensure consistency
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return errorResponse(res, 404, "User account not found");
+    }
+
+    // Create new profile with combined data
+    const profileData = {
+      userId: req.user.id,
+      ...req.body,
+      // Ensure email matches user account
+      email: user.email
+    };
+
+    const newProfile = await Profile.create(profileData);
+    
+    return res.status(201).json({
+      success: true,
+      message: "Profile created successfully",
+      profile: newProfile
+    });
+
   } catch (err) {
-    console.error("Error creating profile:", err.message);
-    res.status(500).json({ error: "Server error" });
+    console.error("Profile creation error:", err);
+    
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    
+    return errorResponse(res, 500, "Server error while creating profile");
   }
 });
 
@@ -104,17 +144,37 @@ router.put("/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Prevent changing certain fields
+    const restrictedFields = ['userId', 'regdNo', 'email'];
+    restrictedFields.forEach(field => {
+      if (req.body[field]) {
+        return errorResponse(res, 400, `Cannot update ${field} field`);
+      }
+    });
+
     const updatedProfile = await Profile.findByIdAndUpdate(
       id,
       { $set: req.body },
       { new: true, runValidators: true }
     );
 
-    if (!updatedProfile) return res.status(404).json({ error: "Profile not found" });
+    if (!updatedProfile) {
+      return errorResponse(res, 404, "Profile not found");
+    }
 
-    res.status(200).json(updatedProfile);
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      profile: updatedProfile
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Profile update error:", err);
+    
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    
+    return errorResponse(res, 500, "Server error while updating profile");
   }
 });
 
@@ -125,20 +185,39 @@ router.put("/:id", authMiddleware, async (req, res) => {
  */
 router.patch("/", authMiddleware, async (req, res) => {
   try {
+    // Check restricted fields first
+    const restrictedFields = ['userId', 'regdNo', 'email'];
+    for (const field of restrictedFields) {
+      if (req.body[field]) {
+        return errorResponse(res, 400, `Cannot update ${field} field`);
+      }
+    }
+
     const updatedProfile = await Profile.findOneAndUpdate(
       { userId: req.user.id },
       { $set: req.body },
       { new: true, runValidators: true }
     );
 
-    if (!updatedProfile) return res.status(404).json({ error: "Profile not found" });
+    if (!updatedProfile) {
+      return errorResponse(res, 404, "Profile not found");
+    }
 
-    res.status(200).json(updatedProfile);
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      profile: updatedProfile
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Profile patch error:", err);
+    
+    if (err.name === 'ValidationError') {
+      return errorResponse(res, 400, err.message);
+    }
+    
+    return errorResponse(res, 500, "Server error while updating profile");
   }
 });
-
 /**
  * @route PATCH /api/profile/attendance
  * @desc Update attendance (Admin Only)
@@ -147,25 +226,43 @@ router.patch("/", authMiddleware, async (req, res) => {
 router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId, semester, month, percentage } = req.body;
+    
     if (!userId || !semester || !month || percentage === undefined) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return errorResponse(res, 400, "Missing required fields");
+    }
+
+    if (percentage < 0 || percentage > 100) {
+      return errorResponse(res, 400, "Percentage must be between 0 and 100");
     }
 
     const profile = await Profile.findOne({ userId });
-    if (!profile) return res.status(404).json({ error: "Profile not found" });
+    if (!profile) {
+      return errorResponse(res, 404, "Profile not found");
+    }
 
+    // Initialize attendance array if not exists
     profile.attendance = profile.attendance || [];
-    let semesterEntry = profile.attendance.find((s) => s.semester === semester);
+    
+    // Find or create semester entry
+    let semesterEntry = profile.attendance.find(s => s.semester === semester);
     if (!semesterEntry) {
       semesterEntry = { semester, months: {} };
       profile.attendance.push(semesterEntry);
     }
+    
+    // Update month's attendance
     semesterEntry.months[month] = { percentage };
-
+    
     await profile.save();
-    res.status(200).json({ message: "Attendance updated successfully", profile });
+    
+    return res.status(200).json({
+      success: true,
+      message: "Attendance updated successfully",
+      attendance: profile.attendance
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Attendance update error:", err);
+    return errorResponse(res, 500, "Server error while updating attendance");
   }
 });
 
@@ -177,11 +274,19 @@ router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res) =>
 router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const deletedProfile = await Profile.findByIdAndDelete(req.params.id);
-    if (!deletedProfile) return res.status(404).json({ error: "Profile not found" });
-
-    res.status(200).json({ message: "Profile deleted successfully" });
+    
+    if (!deletedProfile) {
+      return errorResponse(res, 404, "Profile not found");
+    }
+    
+    return res.status(200).json({
+      success: true,
+      message: "Profile deleted successfully"
+    });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Profile deletion error:", err);
+    return errorResponse(res, 500, "Server error while deleting profile");
   }
 });
+
 module.exports = router;
