@@ -10,10 +10,6 @@ const Dashboard = () => {
     profilePicture: '',
     role: ''
   });
-  const [users, setUsers] = useState([]);
-  const [profiles, setProfiles] = useState([]);
-  const [mentorGradings, setMentorGradings] = useState([]);
-  const [marks, setMarks] = useState([]);
 
   useEffect(() => {
     const fetchUserDetails = async () => {
@@ -22,6 +18,7 @@ const Dashboard = () => {
       if (!authToken) {
         console.log('No auth token found. Redirecting to /signup');
         navigate('/signup');
+        
         return;
       }
     
@@ -67,8 +64,9 @@ const Dashboard = () => {
         }
       }
     };
+    
     fetchUserDetails();
-  }, [navigate]);
+  }, [navigate, user]); // Add user to the dependency array
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,21 +77,17 @@ const Dashboard = () => {
       };
       
       try {
-        // Fetch data with proper authentication
-        const [usersRes, profilesRes, mentorGradingsRes, marksRes] = await Promise.all([
+        // Fetch data without assigning unused variables
+        await Promise.all([
           axios.get('http://localhost:5000/api/admin/users', config),
           axios.get('http://localhost:5000/api/admin/profiles', config),
           axios.get('http://localhost:5000/api/admin/mentorgradings', config),
           axios.get('http://localhost:5000/api/admin/marks', config)
         ]);
         
-        // Store data in state
-        setUsers(usersRes.data);
-        setProfiles(profilesRes.data);
-        setMentorGradings(mentorGradingsRes.data);
-        setMarks(marksRes.data);
+        // Handle fetched data if needed
       } catch (err) {
-        // Handle errors appropriately
+        console.error('Error fetching data:', err);
       }
     };
     fetchData();
