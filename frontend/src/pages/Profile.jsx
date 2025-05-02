@@ -1,30 +1,23 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Button,
-  CircularProgress, Typography, Alert, Box, Avatar, Select, MenuItem
-} from "@mui/material";
-import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import "./css/Profile.css"; // We'll create this CSS file separately
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     regdNo: "",
     section: "",
     mobileNumber: "",
     email: "",
-    admissionType: "",
+    admissionType: "Convener", // default value
     caste: "",
     rank: "",
     dob: "",
     bloodGroup: "",
-    tenthMarks: { obtained: 0, max: 0, percentage: 0 },
-    interDiplomaMarks: { obtained: 0, max: 0, percentage: 0 },
+    tenthMarks: { obtained: "", max: "", percentage: "" },
+    interDiplomaMarks: { obtained: "", max: "", percentage: "" },
     parentDetails: {
       name: "",
       address: "",
@@ -44,30 +37,18 @@ const Profile = () => {
       technical: [],
     },
     profilePicture: "",
-    attendance: [],
   });
-  const [editMode, setEditMode] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [profilePictureFile, setProfilePictureFile] = useState(null);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState("basic");
   const navigate = useNavigate();
 
-  // Check if the token is expired
-  const isTokenExpired = (token) => {
-    try {
-      const decodedToken = JSON.parse(atob(token.split(".")[1]));
-      const isExpired = decodedToken.exp * 1000 < Date.now();
-      return isExpired;
-    } catch (error) {
-      return true; // If token is invalid, treat it as expired
-    }
-  };
-
-  // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
       const token = localStorage.getItem("authToken");
-
-      if (!token || isTokenExpired(token)) {
+      if (!token) {
         navigate("/signup");
         return;
       }
@@ -76,13 +57,28 @@ const Profile = () => {
         const response = await axios.get("http://localhost:5000/api/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setProfile(response.data);
-        setFormData(response.data);
+
+        if (response.data.success && response.data.profile) {
+          setProfile(response.data.profile);
+          setFormData(response.data.profile);
+          setIsNewUser(false);
+        } else {
+          setIsNewUser(true);
+          // Get user email for the form
+          const userResponse = await axios.get("http://localhost:5000/api/auth/user", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setFormData(prev => ({
+            ...prev,
+            email: userResponse.data.email || ""
+          }));
+        }
       } catch (error) {
-        if (error.response?.status === 401) {
-          navigate("/signup");
+        if (error.response?.status === 404) {
+          setIsNewUser(true);
         } else {
           setError("Error fetching profile. Please try again.");
+          console.error("Profile fetch error:", error);
         }
       } finally {
         setIsLoading(false);
@@ -92,668 +88,549 @@ const Profile = () => {
     fetchProfile();
   }, [navigate]);
 
-  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
-  // Handle nested input changes (e.g., parentDetails, tenthMarks)
-
-
-  const handleNestedInputChange = useCallback((parentField, field, value) => {
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [parentField]: {
-        ...prevFormData[parentField],
-        [field]: value,
-      },
+  const handleNestedChange = (parent, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [parent]: { ...prev[parent], [field]: value }
     }));
-  }, []);
-
-  // Handle profile picture upload
-  const handleProfilePictureChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setProfilePictureFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({
-          ...formData,
-          profilePicture: reader.result,
-        });
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
-  // Handle form submission
+  const handleArrayChange = (parent, field, value) => {
+    const arrayValue = value.split(",").map(item => item.trim());
+    setFormData(prev => ({
+      ...prev,
+      [parent]: { ...prev[parent], [field]: arrayValue }
+    }));
+  };
+
   const handleSubmit = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      navigate("/signup");
+      return;
+    }
+  
     try {
-      const token = localStorage.getItem("authToken");
-      const updatedData = { ...formData };
-
-      // If a new profile picture is uploaded, convert it to base64
-      if (profilePictureFile) {
-        const reader = new FileReader();
-        reader.readAsDataURL(profilePictureFile);
-        reader.onloadend = () => {
-          updatedData.profilePicture = reader.result;
-          sendUpdateRequest(updatedData, token);
-        };
-      } else {
-        sendUpdateRequest(updatedData, token);
+      // Validate required fields
+      if (!formData.name || !formData.regdNo || !formData.email) {
+        throw new Error("Name, Registration Number, and Email are required");
       }
+  
+      // Clean up form data before sending
+      const dataToSend = {
+        ...formData,
+        // Remove any fields that shouldn't be updated
+        userId: undefined,
+        regdNo: isNewUser ? formData.regdNo : undefined,
+        email: isNewUser ? formData.email : undefined
+      };
+  
+      let response;
+      if (isNewUser) {
+        response = await axios.post(
+          "http://localhost:5000/api/profile",
+          dataToSend,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        response = await axios.patch(
+          "http://localhost:5000/api/profile",
+          dataToSend,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+  
+      // Handle both response formats (POST returns 'profile', PATCH returns 'profile' in data)
+      const updatedProfile = response.data.profile || response.data;
+      setProfile(updatedProfile);
+      setFormData(updatedProfile);
+      setIsNewUser(false);
+      setIsEditing(false);
+      setError("");
     } catch (error) {
-      console.error("Error updating profile:", error);
-      toast.error("Failed to update profile.");
-    }
-  };
-
-  const sendUpdateRequest = async (data, token) => {
-    try {
-      const response = await axios.patch("http://localhost:5000/api/profile", data, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("Profile updated successfully!");
-      setEditMode(false);
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      toast.error("Failed to update profile.");
-    }
-  };
-
-  // Handle profile deletion
-  const handleDeleteProfile = async () => {
-    if (window.confirm("Are you sure you want to delete your profile?")) {
-      try {
-        const token = localStorage.getItem("authToken");
-        await axios.delete(`http://localhost:5000/api/profile/${profile._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success("Profile deleted successfully!");
-        navigate("/");
-      } catch (error) {
-        console.error("Error deleting profile:", error);
-        toast.error("Failed to delete profile.");
+      console.error("Save error:", error);
+      // Better error message handling
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message ||
+                          error.message || 
+                          "Failed to save profile. Please check your data.";
+      setError(errorMessage);
+      
+      // If it's a validation error, show more details
+      if (error.response?.data?.errors) {
+        const validationErrors = Object.values(error.response.data.errors)
+          .map(err => err.message)
+          .join(", ");
+        setError(`Validation errors: ${validationErrors}`);
       }
     }
   };
 
   if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-        <CircularProgress />
-      </Box>
-    );
+    return <div className="loading-spinner"></div>;
   }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      style={{ padding: "20px", maxWidth: "900px", margin: "auto" }}
-    >
-      <ToastContainer />
-      <Typography variant="h5" align="center" gutterBottom>
-        My Profile
-      </Typography>
-
-      {error && (
-        <Alert severity="error" style={{ marginBottom: "10px" }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Profile Picture */}
-      <Box display="flex" justifyContent="center" mb={3}>
-        <Avatar
-          src={formData.profilePicture}
-          alt="Profile Picture"
-          sx={{ width: 100, height: 100 }}
-        />
-      </Box>
-      {editMode && (
-        <Box display="flex" justifyContent="center" mb={3}>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleProfilePictureChange}
-          />
-        </Box>
-      )}
-
-      <TableContainer component={Paper} elevation={3}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell><b>Field</b></TableCell>
-              <TableCell><b>Value</b></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* Basic Details */}
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.name
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Registration Number</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="regdNo"
-                    value={formData.regdNo}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.regdNo
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Section</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="section"
-                    value={formData.section}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.section
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Mobile Number</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="mobileNumber"
-                    value={formData.mobileNumber}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.mobileNumber
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Email</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.email
-                )}
-              </TableCell>
-            </TableRow>
-            {/* Additional Fields */}
-            <TableRow>
-              <TableCell>Admission Type</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <Select
-                    name="admissionType"
-                    value={formData.admissionType}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  >
-                    <MenuItem value="Convener">Convener</MenuItem>
-                    <MenuItem value="Management">Management</MenuItem>
-                    <MenuItem value="Category-B">Category-B</MenuItem>
-                  </Select>
-                ) : (
-                  formData.admissionType
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Caste</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="caste"
-                    value={formData.caste}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.caste
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Rank</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="rank"
-                    value={formData.rank}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.rank
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Date of Birth</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="dob"
-                    value={formData.dob}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.dob
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Blood Group</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="bloodGroup"
-                    value={formData.bloodGroup}
-                    onChange={handleInputChange}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.bloodGroup
-                )}
-              </TableCell>
-            </TableRow>
-            {/* 10th Marks */}
-            <TableRow>
-              <TableCell>10th Marks (Obtained)</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="tenthMarks.obtained"
+  const renderTabContent = () => {
+    switch(activeTab) {
+      case 'basic':
+        return (
+          <div className="tab-content">
+            <div className="form-row">
+              <div className="form-group">
+                <label>Name:</label>
+                <input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Registration Number:</label>
+                <input
+                  name="regdNo"
+                  value={formData.regdNo}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Section:</label>
+                <input
+                  name="section"
+                  value={formData.section}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Mobile Number:</label>
+                <input
+                  name="mobileNumber"
+                  value={formData.mobileNumber}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Email:</label>
+                <input
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  disabled // Email comes from user account
+                  className="disabled-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>Admission Type:</label>
+                <select
+                  name="admissionType"
+                  value={formData.admissionType}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                >
+                  <option value="Convener">Convener</option>
+                  <option value="Management">Management</option>
+                  <option value="Category-B">Category-B</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Caste:</label>
+                <input
+                  name="caste"
+                  value={formData.caste}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Rank:</label>
+                <input
+                  name="rank"
+                  value={formData.rank}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Date of Birth:</label>
+                <input
+                  name="dob"
+                  type="date"
+                  value={formData.dob}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              <div className="form-group">
+                <label>Blood Group:</label>
+                <input
+                  name="bloodGroup"
+                  value={formData.bloodGroup}
+                  onChange={handleInputChange}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'academic':
+        return (
+          <div className="tab-content">
+            <div className="card">
+              <h3>10th Marks</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Obtained:</label>
+                  <input
+                    type="number"
                     value={formData.tenthMarks.obtained}
-                    onChange={(e) => handleNestedInputChange("tenthMarks", "obtained", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("tenthMarks", "obtained", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.tenthMarks.obtained
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>10th Marks (Max)</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="tenthMarks.max"
+                </div>
+                <div className="form-group">
+                  <label>Max:</label>
+                  <input
+                    type="number"
                     value={formData.tenthMarks.max}
-                    onChange={(e) => handleNestedInputChange("tenthMarks", "max", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("tenthMarks", "max", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.tenthMarks.max
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>10th Marks (Percentage)</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="tenthMarks.percentage"
-                    value={formData.tenthMarks.percentage}
-                    onChange={(e) => handleNestedInputChange("tenthMarks", "percentage", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.tenthMarks.percentage
-                )}
-              </TableCell>
-            </TableRow>
-            {/* Inter/Diploma Marks */}
-            <TableRow>
-              <TableCell>Inter/Diploma Marks (Obtained)</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="interDiplomaMarks.obtained"
+                </div>
+                <div className="form-group">
+                  <label>Percentage:</label>
+                  <div className="input-with-suffix">
+                    <input
+                      type="number"
+                      value={formData.tenthMarks.percentage}
+                      onChange={(e) => handleNestedChange("tenthMarks", "percentage", e.target.value)}
+                      disabled={!isEditing && !isNewUser}
+                    />
+                    <span className="input-suffix">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="card">
+              <h3>Inter/Diploma Marks</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Obtained:</label>
+                  <input
+                    type="number"
                     value={formData.interDiplomaMarks.obtained}
-                    onChange={(e) => handleNestedInputChange("interDiplomaMarks", "obtained", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("interDiplomaMarks", "obtained", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.interDiplomaMarks.obtained
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Inter/Diploma Marks (Max)</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="interDiplomaMarks.max"
+                </div>
+                <div className="form-group">
+                  <label>Max:</label>
+                  <input
+                    type="number"
                     value={formData.interDiplomaMarks.max}
-                    onChange={(e) => handleNestedInputChange("interDiplomaMarks", "max", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("interDiplomaMarks", "max", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.interDiplomaMarks.max
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Inter/Diploma Marks (Percentage)</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="interDiplomaMarks.percentage"
-                    value={formData.interDiplomaMarks.percentage}
-                    onChange={(e) => handleNestedInputChange("interDiplomaMarks", "percentage", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.interDiplomaMarks.percentage
-                )}
-              </TableCell>
-            </TableRow>
-            {/* Parent Details */}
-            <TableRow>
-              <TableCell>Parent Name</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="parentDetails.name"
+                </div>
+                <div className="form-group">
+                  <label>Percentage:</label>
+                  <div className="input-with-suffix">
+                    <input
+                      type="number"
+                      value={formData.interDiplomaMarks.percentage}
+                      onChange={(e) => handleNestedChange("interDiplomaMarks", "percentage", e.target.value)}
+                      disabled={!isEditing && !isNewUser}
+                    />
+                    <span className="input-suffix">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'family':
+        return (
+          <div className="tab-content">
+            <div className="card">
+              <h3>Parent Details</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Name:</label>
+                  <input
                     value={formData.parentDetails.name}
-                    onChange={(e) => handleNestedInputChange("parentDetails", "name", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("parentDetails", "name", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.parentDetails.name
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Parent Address</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="parentDetails.address"
-                    value={formData.parentDetails.address}
-                    onChange={(e) => handleNestedInputChange("parentDetails", "address", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.parentDetails.address
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Parent Occupation</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="parentDetails.occupation"
+                </div>
+                <div className="form-group">
+                  <label>Occupation:</label>
+                  <input
                     value={formData.parentDetails.occupation}
-                    onChange={(e) => handleNestedInputChange("parentDetails", "occupation", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("parentDetails", "occupation", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.parentDetails.occupation
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Parent Contact Number</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="parentDetails.contactNumber"
+                </div>
+              </div>
+              
+              <div className="form-group full-width">
+                <label>Address:</label>
+                <input
+                  value={formData.parentDetails.address}
+                  onChange={(e) => handleNestedChange("parentDetails", "address", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Contact Number:</label>
+                  <input
                     value={formData.parentDetails.contactNumber}
-                    onChange={(e) => handleNestedInputChange("parentDetails", "contactNumber", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("parentDetails", "contactNumber", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.parentDetails.contactNumber
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Parent Email</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="parentDetails.email"
+                </div>
+                <div className="form-group">
+                  <label>Email:</label>
+                  <input
                     value={formData.parentDetails.email}
-                    onChange={(e) => handleNestedInputChange("parentDetails", "email", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("parentDetails", "email", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.parentDetails.email
-                )}
-              </TableCell>
-            </TableRow>
-            {/* Local Guardian Details */}
-            <TableRow>
-              <TableCell>Local Guardian Name</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="localGuardian.name"
+                </div>
+              </div>
+            </div>
+            
+            <div className="card">
+              <h3>Local Guardian</h3>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Name:</label>
+                  <input
                     value={formData.localGuardian.name}
-                    onChange={(e) => handleNestedInputChange("localGuardian", "name", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("localGuardian", "name", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.localGuardian.name
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Local Guardian Address</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="localGuardian.address"
-                    value={formData.localGuardian.address}
-                    onChange={(e) => handleNestedInputChange("localGuardian", "address", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.localGuardian.address
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Local Guardian Contact Number</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="localGuardian.contactNumber"
+                </div>
+                <div className="form-group">
+                  <label>Contact Number:</label>
+                  <input
                     value={formData.localGuardian.contactNumber}
-                    onChange={(e) => handleNestedInputChange("localGuardian", "contactNumber", e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
+                    onChange={(e) => handleNestedChange("localGuardian", "contactNumber", e.target.value)}
+                    disabled={!isEditing && !isNewUser}
                   />
-                ) : (
-                  formData.localGuardian.contactNumber
-                )}
-              </TableCell>
-            </TableRow>
-            {/* Hobbies */}
-            <TableRow>
-              <TableCell>Hobbies</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="hobbies"
-                    value={formData.hobbies.join(", ")}
-                    onChange={(e) => setFormData({ ...formData, hobbies: e.target.value.split(", ") })}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.hobbies.join(", ")
-                )}
-              </TableCell>
-            </TableRow>
-            {/* Participation */}
-            <TableRow>
-              <TableCell>Games & Activities</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="participation.gamesAndActivities"
-                    value={formData.participation.gamesAndActivities.join(", ")}
-                    onChange={(e) => handleNestedInputChange("participation", "gamesAndActivities", e.target.value.split(", "))}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.participation.gamesAndActivities.join(", ")
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Literary Activities</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="participation.literary"
-                    value={formData.participation.literary.join(", ")}
-                    onChange={(e) => handleNestedInputChange("participation", "literary", e.target.value.split(", "))}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.participation.literary.join(", ")
-                )}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Technical Activities</TableCell>
-              <TableCell>
-                {editMode ? (
-                  <TextField
-                    name="participation.technical"
-                    value={formData.participation.technical.join(", ")}
-                    onChange={(e) => handleNestedInputChange("participation", "technical", e.target.value.split(", "))}
-                    variant="outlined"
-                    size="small"
-                    fullWidth
-                  />
-                ) : (
-                  formData.participation.technical.join(", ")
-                )}
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
+                </div>
+              </div>
+              
+              <div className="form-group full-width">
+                <label>Address:</label>
+                <input
+                  value={formData.localGuardian.address}
+                  onChange={(e) => handleNestedChange("localGuardian", "address", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 'extra':
+        return (
+          <div className="tab-content">
+            <div className="card">
+              <h3>Hobbies</h3>
+              <div className="form-group full-width">
+                <label>Hobbies (comma separated):</label>
+                <input
+                  value={formData.hobbies.join(", ")}
+                  onChange={(e) => setFormData({...formData, hobbies: e.target.value.split(",").map(item => item.trim())})}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Reading, Swimming, Chess"
+                />
+              </div>
+            </div>
+            
+            <div className="card">
+              <h3>Extra-Curricular Activities</h3>
+              <div className="form-group full-width">
+                <label>Games & Activities (comma separated):</label>
+                <input
+                  value={formData.participation.gamesAndActivities.join(", ")}
+                  onChange={(e) => handleArrayChange("participation", "gamesAndActivities", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Basketball, Swimming, Drama Club"
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Literary Activities (comma separated):</label>
+                <input
+                  value={formData.participation.literary.join(", ")}
+                  onChange={(e) => handleArrayChange("participation", "literary", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Debate, Poetry, Creative Writing"
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Technical Activities (comma separated):</label>
+                <input
+                  value={formData.participation.technical.join(", ")}
+                  onChange={(e) => handleArrayChange("participation", "technical", e.target.value)}
+                  disabled={!isEditing && !isNewUser}
+                  placeholder="e.g. Robotics, Coding, Electronics"
+                />
+              </div>
+            </div>
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
 
-      <Box display="flex" justifyContent="center" mt={2} gap={2}>
-  <Button
-    variant="contained"
-    color={editMode ? "success" : "primary"}
-    onClick={editMode ? handleSubmit : () => setEditMode(true)}
-  >
-    {editMode ? "Save" : "Edit"}
-  </Button>
-  
-  <Button
-    variant="contained"
-    color="error"
-    onClick={handleDeleteProfile}
-  >
-    Delete Profile
-  </Button>
-
-  <Button
-    variant="contained"
-    color="secondary"
-    onClick={() => navigate('/dashboard')}
-  >
-    Back to Dashboard
-  </Button>
-</Box>
-    </motion.div>
+  return (
+    <div className="profile-container">
+      <div className="profile-header">
+        <h1>{isNewUser ? "Create Profile" : "Student Profile"}</h1>
+        <button 
+          className="btn btn-secondary"
+          onClick={() => navigate("/dashboard")}
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="profile-content">
+        <div className="profile-sidebar">
+          <div className="profile-picture-container">
+            {formData.profilePicture ? (
+              <img 
+                src={formData.profilePicture} 
+                alt="Profile" 
+                className="profile-picture"
+              />
+            ) : (
+              <div className="profile-picture-placeholder">
+                {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
+              </div>
+            )}
+            
+            {(isEditing || isNewUser) && (
+              <div className="profile-picture-upload">
+                <label className="upload-btn">
+                  Change Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setFormData({...formData, profilePicture: reader.result});
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+          
+          <div className="profile-actions">
+            {!isEditing && !isNewUser ? (
+              <button 
+                className="btn btn-primary"
+                onClick={() => setIsEditing(true)}
+              >
+                Edit Profile
+              </button>
+            ) : (
+              <div className="action-buttons">
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleSubmit}
+                >
+                  Save Profile
+                </button>
+                <button 
+                  className="btn btn-outline"
+                  onClick={() => {
+                    if (isNewUser) {
+                      setFormData({
+                        ...formData,
+                        email: profile?.email || ""
+                      });
+                    } else {
+                      setFormData(profile);
+                      setIsEditing(false);
+                    }
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="profile-nav">
+            <button 
+              className={`nav-item ${activeTab === 'basic' ? 'active' : ''}`}
+              onClick={() => setActiveTab('basic')}
+            >
+              Basic Details
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'academic' ? 'active' : ''}`}
+              onClick={() => setActiveTab('academic')}
+            >
+              Academic Details
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'family' ? 'active' : ''}`}
+              onClick={() => setActiveTab('family')}
+            >
+              Family Information
+            </button>
+            <button 
+              className={`nav-item ${activeTab === 'extra' ? 'active' : ''}`}
+              onClick={() => setActiveTab('extra')}
+            >
+              Extra-Curricular
+            </button>
+          </div>
+        </div>
+        
+        <div className="profile-details">
+          {renderTabContent()}
+        </div>
+      </div>
+    </div>
   );
 };
 

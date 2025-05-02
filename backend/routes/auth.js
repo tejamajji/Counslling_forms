@@ -4,122 +4,94 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
-const { authMiddleware } = require('../middlewares/authMiddleware');
+const router = express.Router();
 
-/**
- * @route POST /api/auth/signup
- * @desc Register a user
- * @access Public
- */
+// Middleware to verify JWT token
+const authMiddleware = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Add the decoded user payload to the request object
+    next();
+  } catch (err) {
+    res.status(400).json({ error: 'Invalid token' });
+  }
+};
+
+// Signup
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Check if user already exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
+  try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
 
-    // Create new user
-    user = new User({ username, email, password });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, email, password: hashedPassword });
+    await newUser.save();
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
-
-    await user.save();
-
-    // Generate token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
+    // Return username and email in the response
     res.status(201).json({
-      token,
-      userId: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role
+      message: 'User registered successfully',
+      userId: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error in /signup:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
-/**
- * @route POST /api/auth/signin
- * @desc Authenticate user & get token
- * @access Public
- */
+// Signin
 router.post('/signin', async (req, res) => {
   try {
     const { email, password } = req.body;
 
     // Check if user exists
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-    // Generate token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    res.json({
-      token,
-      userId: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role
-    });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token, username: user.username, email: user.email }); // Return username and email
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-/**
- * @route GET /api/auth/user
- * @desc Get logged in user
- * @access Private
- */
+// Fetch user details (email and username)
 router.get('/user', authMiddleware, async (req, res) => {
   try {
-    // Return user without password
+    // Fetch user details
     const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ 
+      error: 'User not found',
+      isNewUser: false
+    });
 
-    // Fetch profile details
     const profile = await Profile.findOne({ userId: req.user.id });
-
-    if (!user || !profile) {
-      return res.status(404).json({ error: 'User or profile not found' });
-    }
-
-    // Return both user and profile data
+    
     res.status(200).json({
       username: user.username,
       email: user.email,
-      profilePicture: profile.profilePicture, // Include profile picture from the Profile schema
+      hasProfile: !!profile,
+      profilePicture: profile?.profilePicture || null,
+      isNewUser: user.isNewUser || false  // Include new user status
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Logout
 router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
