@@ -110,6 +110,7 @@ const Auth = () => {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('userEmail', data.email); // Store email from response
         localStorage.setItem('userName', data.username); // Store username from response
+        localStorage.setItem('userRole', data.role); // Store user role
         console.log("Stored Email:", data.email); // Debugging
         console.log("Stored Username:", data.username); // Debugging
         navigate('/dashboard');

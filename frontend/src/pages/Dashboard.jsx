@@ -4,7 +4,16 @@ import axios from 'axios';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState({ name: '', email: '', profilePicture: '' });
+  const [user, setUser] = useState({ 
+    name: '', 
+    email: '', 
+    profilePicture: '',
+    role: ''
+  });
+  const [users, setUsers] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [mentorGradings, setMentorGradings] = useState([]);
+  const [marks, setMarks] = useState([]);
 
   useEffect(() => {
     const fetchUserDetails = async () => {
@@ -20,15 +29,18 @@ const Dashboard = () => {
         // Fetch user details from localStorage
         const userEmail = localStorage.getItem('userEmail');
         const userName = localStorage.getItem('userName');
+        const userRole = localStorage.getItem('userRole');
     
-        console.log("Fetched Email from localStorage:", userEmail); // Debugging
-        console.log("Fetched Username from localStorage:", userName); // Debugging
+        console.log("Fetched Email from localStorage:", userEmail);
+        console.log("Fetched Username from localStorage:", userName);
+        console.log("Fetched Role from localStorage:", userRole);
     
         // Update the user state with localStorage data
         setUser({
           name: userName || 'User',
           email: userEmail || 'Not Available',
-          profilePicture: '', // Initialize profile picture as empty
+          profilePicture: '',
+          role: userRole || 'user'
         });
     
         // Fetch additional details from the backend
@@ -36,17 +48,18 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${authToken}` },
         });
     
-        console.log('User Details from Backend:', response.data); // Debugging
+        console.log('User Details from Backend:', response.data);
     
         // Update the user state with backend data
         setUser((prevUser) => ({
           ...prevUser,
           name: response.data.username || prevUser.name,
           email: response.data.email || prevUser.email,
-          profilePicture: response.data.profilePicture || prevUser.profilePicture, // Update profile picture
+          profilePicture: response.data.profilePicture || prevUser.profilePicture,
+          role: response.data.role || prevUser.role
         }));
     
-        console.log('Updated User State:', user); // Debugging
+        console.log('Updated User State:', user);
       } catch (error) {
         console.error('Error fetching user details:', error);
         if (error.response?.status === 401) {
@@ -56,11 +69,42 @@ const Dashboard = () => {
     };
     fetchUserDetails();
   }, [navigate]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = localStorage.getItem('authToken');
+      
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+      
+      try {
+        // Fetch data with proper authentication
+        const [usersRes, profilesRes, mentorGradingsRes, marksRes] = await Promise.all([
+          axios.get('http://localhost:5000/api/admin/users', config),
+          axios.get('http://localhost:5000/api/admin/profiles', config),
+          axios.get('http://localhost:5000/api/admin/mentorgradings', config),
+          axios.get('http://localhost:5000/api/admin/marks', config)
+        ]);
+        
+        // Store data in state
+        setUsers(usersRes.data);
+        setProfiles(profilesRes.data);
+        setMentorGradings(mentorGradingsRes.data);
+        setMarks(marksRes.data);
+      } catch (err) {
+        // Handle errors appropriately
+      }
+    };
+    fetchData();
+  }, []);
+
   const handleLogout = () => {
     console.log('Logging out...');
     localStorage.removeItem('authToken');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
+    localStorage.removeItem('userRole');
     navigate('/signup');
   };
 
@@ -77,7 +121,7 @@ const Dashboard = () => {
           }}
         ></div>
         <h2 style={styles.bigText}>Hello, {user.name}!</h2>
-        <p style={styles.smallText}>{user.email}</p> {/* Display the email */}
+        <p style={styles.smallText}>{user.email}</p>
         <div style={styles.stats}>
           <p><strong>⭐ Projects:</strong> 12</p>
           <p><strong>🎯 Achievements:</strong> 5</p>
@@ -94,8 +138,22 @@ const Dashboard = () => {
         </p>
         <div style={styles.buttonGroup}>
           <button onClick={handleLogout} style={styles.button}>Log Out</button>
-          <button onClick={() => navigate('/semester')} style={styles.buttonSecondary}>Semester Marks</button>
-          <button onClick={() => navigate('/mentorgrade')} style={styles.buttonTertiary}>Mentor Grading</button>
+          <button onClick={() => navigate('/profile')} style={styles.buttonSecondary}>My Profile</button>
+          <button onClick={() => navigate('/semester')} style={styles.buttonTertiary}>Semester Marks</button>
+          <button onClick={() => navigate('/mentorgrade')} style={{
+            ...styles.button,
+            backgroundColor: '#4CAF50',
+          }}>Mentor Grading</button>
+          
+          {user.role === 'admin' && (
+            <button onClick={() => navigate('/admin')} style={{
+              ...styles.button,
+              backgroundColor: '#9c27b0',
+              boxShadow: '0 4px 10px rgba(156, 39, 176, 0.3)',
+            }}>
+              Admin Panel
+            </button>
+          )}
         </div>
       </div>
 
