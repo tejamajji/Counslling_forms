@@ -1,117 +1,82 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Profile = require('../models/Profile');
-const router = express.Router();
+const { authMiddleware } = require('../middlewares/authMiddleware');
 
-// Middleware to verify JWT token
-const authMiddleware = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access denied. No token provided.' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    res.status(400).json({ error: 'Invalid token' });
-  }
-};
-
-// Enhanced Signup with new user flag
+// Signup
 router.post('/signup', async (req, res) => {
-  const { username, email, password } = req.body;
-
   try {
-    // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ 
-        error: 'User already exists',
-        isNewUser: false
-      });
-    }
+    const { username, email, password } = req.body;
 
-    // Create new user with isNew flag
-    user = new User({
-      username,
-      email,
-      password: await bcrypt.hash(password, 10),
-      isNewUser: true  // Flagging new users
-    });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
 
-    await user.save();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, email, password: hashedPassword });
+    await newUser.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { 
-      expiresIn: '1h' 
-    });
+    // Generate token
+    const token = jwt.sign(
+      { id: newUser._id, role: newUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
 
-    res.status(201).json({ 
-      token, 
-      username: user.username, 
-      email: user.email,
-      hasProfile: false,
-      isNewUser: true  // Explicitly indicating this is a new user
+    // Return user data with token
+    res.status(201).json({
+      message: 'User registered successfully',
+      token,
+      userId: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role
     });
   } catch (err) {
-    res.status(500).json({ 
-      error: 'Server error during signup',
-      isNewUser: false
-    });
+    console.error('Error in /signup:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
-// Enhanced Signin with new user check
+// Signin
 router.post('/signin', async (req, res) => {
-  const { email, password } = req.body;
-
   try {
+    const { email, password } = req.body;
+
+    // Check if user exists
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ 
-      error: 'User not found',
-      isNewUser: false
-    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ 
-      error: 'Invalid credentials',
-      isNewUser: false
-    });
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { 
-      expiresIn: '1h' 
-    });
+    // Generate token with role
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
     
-    const profile = await Profile.findOne({ userId: user._id });
-    
-    res.json({ 
-      token, 
-      username: user.username, 
+    // Return user data with token and role
+    res.json({
+      token,
+      userId: user._id,
+      username: user.username,
       email: user.email,
-      hasProfile: !!profile,
-      isNewUser: user.isNewUser || false  // Return new user status
+      role: user.role
     });
-
-    // Update isNewUser flag after first login if needed
-    if (user.isNewUser) {
-      user.isNewUser = false;
-      await user.save();
-    }
   } catch (err) {
-    res.status(500).json({ 
-      error: 'Server error',
-      isNewUser: false
-    });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Enhanced User Details with new user flag
+// Fetch user details (email and username)
 router.get('/user', authMiddleware, async (req, res) => {
   try {
+    // Fetch user details
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ 
       error: 'User not found',
@@ -123,19 +88,17 @@ router.get('/user', authMiddleware, async (req, res) => {
     res.status(200).json({
       username: user.username,
       email: user.email,
+      role: user.role,
       hasProfile: !!profile,
       profilePicture: profile?.profilePicture || null,
       isNewUser: user.isNewUser || false  // Include new user status
     });
   } catch (err) {
-    res.status(500).json({ 
-      error: 'Server error',
-      isNewUser: false
-    });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Logout remains unchanged
+// Logout
 router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 });

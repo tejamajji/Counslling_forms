@@ -9,39 +9,45 @@ import Profile from './pages/Profile';
 import MarksTable from './pages/MarksTable';
 import CounselingForm from './pages/CounselingForm';
 import MentorGrading from './pages/MentorGrading';
+import AdminDashboard from './pages/AdminDashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
   const isAuthenticated = localStorage.getItem('authToken');
-  return isAuthenticated ? element : <Navigate to="/" />;
+  return isAuthenticated ? element : <Navigate to="/signup" />;
+};
+
+// Admin Protected Route Component
+const AdminRoute = ({ element }) => {
+  const isAuthenticated = localStorage.getItem('authToken');
+  const userRole = localStorage.getItem('userRole');
+  return isAuthenticated && userRole === 'admin' ? element : <Navigate to="/dashboard" />;
 };
 
 const App = () => {
-  // const isAuthenticated = localStorage.getItem('authToken');  //No need to check authentication here
-
   return (
     <>
       <Router>
         <Header />
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/landingpage" />} /> {/* Redirect to landing page */}
+          <Route path="/" element={<Navigate to="/landingpage" />} />
           <Route path="/landingpage" element={<LandingPage />} />
           <Route path="/signup" element={<SignUp />} />
+
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
           <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
+          <Route path="/profile/:regdNo" element={<ProtectedRoute element={<Profile />} />} />
           <Route path="/counseling-form" element={<ProtectedRoute element={<CounselingForm />} />} />
-          <Route path="/semester" element={<MarksTable />} />
-          <Route path="/mentorgrade" element={<MentorGrading />} />
-
-
-          {/* Add more routes here if needed */}
-
-
+          <Route path="/semester" element={<ProtectedRoute element={<MarksTable />} />} />
+          <Route path="/semester/:email" element={<ProtectedRoute element={<MarksTable />} />} />
+          <Route path="/mentorgrade" element={<ProtectedRoute element={<MentorGrading />} />} />
+          <Route path="/mentorgrade/:email" element={<ProtectedRoute element={<MentorGrading />} />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
         </Routes>
-
-
         <Footer />
       </Router>
     </>
