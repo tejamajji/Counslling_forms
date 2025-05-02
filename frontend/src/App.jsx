@@ -10,6 +10,8 @@ import MarksTable from './pages/MarksTable';
 import CounselingForm from './pages/CounselingForm';
 import MentorGrading from './pages/MentorGrading';
 import AdminDashboard from './pages/AdminDashboard';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
@@ -34,6 +36,8 @@ const App = () => {
           <Route path="/" element={<Navigate to="/landingpage" />} />
           <Route path="/landingpage" element={<LandingPage />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />

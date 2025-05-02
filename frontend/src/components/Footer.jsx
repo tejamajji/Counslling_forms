@@ -10,9 +10,9 @@ const Footer = () => {
 
         {/* Social Media Links */}
         <div style={styles.socialLinks}>
-          <a href="https://facebook.com" target="_blank" style={styles.link}>Facebook</a>
-          <a href="https://twitter.com" target="_blank" style={styles.link}>Twitter</a>
-          <a href="https://linkedin.com" target="_blank" style={styles.link}>LinkedIn</a>
+          <a href="https://facebook.com" target="_blank" rel="noreferrer" style={styles.link}>Facebook</a>
+          <a href="https://twitter.com" target="_blank" rel="noreferrer" style={styles.link}>Twitter</a>
+          <a href="https://linkedin.com" target="_blank" rel="noreferrer" style={styles.link}>LinkedIn</a>
         </div>
       </div>
     </footer>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FaUserGraduate } from 'react-icons/fa'; // Import an icon from react-icons
 import './css/SignUp.css'; // Import CSS file
 
@@ -180,6 +180,13 @@ const Auth = () => {
               <button type="submit" className="auth-button">
                 {isSignUp ? 'Sign Up' : 'Sign In'}
               </button>
+              {!isSignUp && (
+                <div style={{ textAlign: 'right', marginTop: '8px', marginBottom: '16px' }}>
+                  <Link to="/forgot-password" style={{ textDecoration: 'none', color: '#e50914' }}>
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
             </form>
           </div>
 
