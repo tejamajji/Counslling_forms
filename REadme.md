@@ -82,3 +82,72 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 We truly appreciate your time and effort to help improve our project. Happy coding! 🚀
 
 Thankyou
+```
+Counslling_forms
+├─ backend
+│  ├─ .env
+│  ├─ config
+│  │  └─ db.js
+│  ├─ middlewares
+│  │  └─ authMiddleware.js
+│  ├─ models
+│  │  ├─ MentorGradingSchema.js
+│  │  ├─ Profile.js
+│  │  ├─ Semester.js
+│  │  └─ User.js
+│  ├─ package-lock.json
+│  ├─ package.json
+│  ├─ readme.md
+│  ├─ routes
+│  │  ├─ admin.js
+│  │  ├─ auth.js
+│  │  ├─ mentorGradingSchema.js
+│  │  ├─ profile.js
+│  │  └─ semester.js
+│  └─ server.js
+├─ Consolidated counseling form.pdf
+├─ frontend
+│  ├─ .env
+│  ├─ package-lock.json
+│  ├─ package.json
+│  ├─ public
+│  │  ├─ favicon.ico
+│  │  ├─ index.html
+│  │  ├─ logo192.png
+│  │  ├─ logo512.png
+│  │  ├─ manifest.json
+│  │  └─ robots.txt
+│  ├─ README.md
+│  └─ src
+│     ├─ App.css
+│     ├─ App.jsx
+│     ├─ App.test.js
+│     ├─ components
+│     │  ├─ Footer.jsx
+│     │  └─ Header.jsx
+│     ├─ images
+│     │  └─ gvplogo.jpg
+│     ├─ index.css
+│     ├─ index.js
+│     ├─ logo.svg
+│     ├─ pages
+│     │  ├─ AdminDashboard.jsx
+│     │  ├─ CounselingForm.jsx
+│     │  ├─ css
+│     │  │  ├─ EditProfile.css
+│     │  │  ├─ Profile.css
+│     │  │  └─ SignUp.css
+│     │  ├─ Dashboard.jsx
+│     │  ├─ ForgotPassword.jsx
+│     │  ├─ LandingPage.jsx
+│     │  ├─ MarksTable.jsx
+│     │  ├─ MentorGrading.jsx
+│     │  ├─ Profile.jsx
+│     │  ├─ ResetPassword.jsx
+│     │  └─ SignUp.jsx
+│     ├─ reportWebVitals.js
+│     └─ setupTests.js
+├─ package-lock.json
+└─ REadme.md
+
+```

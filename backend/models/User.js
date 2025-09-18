@@ -17,7 +17,7 @@ const UserSchema = new mongoose.Schema({
   role: { 
     type: String, 
     default: 'user',
-    enum: ['user', 'admin', 'mentor']
+    enum: ['user', 'admin', 'mentor','superadmin']
   },
   // Add these fields for password reset
   resetPasswordToken: String,

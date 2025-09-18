@@ -106,15 +106,22 @@ const Auth = () => {
       const data = await response.json();
       console.log('Server Response:', data); // Log the server response
   
-      if (response.ok) {
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('userEmail', data.email); // Store email from response
-        localStorage.setItem('userName', data.username); // Store username from response
-        localStorage.setItem('userRole', data.role); // Store user role
-        console.log("Stored Email:", data.email); // Debugging
-        console.log("Stored Username:", data.username); // Debugging
-        navigate('/dashboard');
-      } else {
+    if (response.ok) {
+  localStorage.setItem('authToken', data.token);
+  localStorage.setItem('userRole', data.role);   // role stored here
+  localStorage.setItem('userEmail', data.email);
+  localStorage.setItem('userName', data.username);
+
+  
+  if (data.role === 'superadmin') {
+    navigate('/superadmin/dashboard');
+  } else if (data.role === 'admin') {
+    navigate('/admin');
+  } else {
+    navigate('/dashboard'); 
+  }
+}
+ else {
         setError(data.error || 'Something went wrong');
       }
     } catch (err) {

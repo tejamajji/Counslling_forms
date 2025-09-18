@@ -12,6 +12,13 @@ import MentorGrading from './pages/MentorGrading';
 import AdminDashboard from './pages/AdminDashboard';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import SuperAdminDashboard from './components/SuperAdmin/SuperAdminDashboard';
+import ManageAdmins from './components/SuperAdmin/ManageAdmins';
+import CreateAdmin from './components/SuperAdmin/CreateAdmin';
+import StudentsList from './components/SuperAdmin/StudentsList';
+import StudentProfile from './components/SuperAdmin/StudentProfile';
+import OverallReports from './components/SuperAdmin/OverallReports';
+
 
 // Protected Route Component
 const ProtectedRoute = ({ element }) => {
@@ -51,6 +58,16 @@ const App = () => {
           
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
+          {/* Super Admin Routes  */}
+
+          <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
+<Route path="/superadmin/admins" element={<ManageAdmins />} />
+<Route path="/superadmin/admins/create" element={<CreateAdmin />} />
+<Route path="/superadmin/students" element={<StudentsList />} />
+<Route path="/superadmin/students/:id" element={<StudentProfile />} />
+<Route path="/superadmin/reports" element={<OverallReports />} />
+
+          
         </Routes>
         <Footer />
       </Router>

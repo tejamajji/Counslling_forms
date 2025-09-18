@@ -47,4 +47,21 @@ const mentorMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = { authMiddleware, adminMiddleware, mentorMiddleware };
+//super admin middleware
+
+
+// Super Admin middleware
+const superAdminMiddleware = (req, res, next) => {
+  if (req.user && req.user.role === "superadmin") {
+    next();
+  } else {
+    return res.status(403).json({ error: "Super Admin access required" });
+  }
+};
+
+module.exports = {
+  authMiddleware,
+  adminMiddleware,
+  mentorMiddleware,
+  superAdminMiddleware
+};
