@@ -85,7 +85,6 @@ const Header = () => {
     const fetchUserDetails = async () => {
       const authToken = localStorage.getItem('authToken');
       if (!authToken) {
-        navigate('/signup');
         return;
       }
 
@@ -100,16 +99,14 @@ const Header = () => {
           profilePicture: response.data.profilePicture || '',
         });
       } catch (error) {
-        if (error.response?.status === 401) {
-          navigate('/signup');
-        }
+        console.error('Error fetching user details:', error);
       }
     };
 
     if (isAuthenticated) {
       fetchUserDetails();
     }
-  }, [navigate, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Load Google Translate widget
   useEffect(() => {

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import apiClient from "../../apiClient";
 
 function ManageAdmins() {
+  const navigate = useNavigate();
   const [admins, setAdmins] = useState([]);
 
   useEffect(() => {
@@ -14,6 +16,7 @@ function ManageAdmins() {
 
   return (
     <div>
+      <button onClick={() => navigate("/superadmin/dashboard")} style={{ marginBottom: "10px" }}>Back to Dashboard</button>
       <h2>Manage Admins</h2>
       <table>
         <thead><tr><th>Name</th><th>ID</th><th>Dept</th></tr></thead>
