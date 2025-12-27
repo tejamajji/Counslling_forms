@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import apiClient from "../../apiClient";
 
 function ManageAdmins() {
   const [admins, setAdmins] = useState([]);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/superadmin/admins", {
+    apiClient.get("/api/superadmin/admins", {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     })
     .then(res => setAdmins(res.data))

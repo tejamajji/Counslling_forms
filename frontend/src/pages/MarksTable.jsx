@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../apiClient";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Button,
   CircularProgress, Typography, Alert, Box, MenuItem, Select, Chip, Card, IconButton
@@ -59,8 +59,8 @@ const MarksTable = () => {
     const fetchSemesterDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(
-          `http://localhost:5000/api/semester/${encodeURIComponent(email)}/${selectedSemester}`
+        const response = await apiClient.get(
+          `/api/semester/${encodeURIComponent(email)}/${selectedSemester}`
         );
 
         if (response.status === 200) {
@@ -111,13 +111,13 @@ const MarksTable = () => {
       setLoading(true);
       let response;
       if (isNewEntry) {
-        response = await axios.post(
-          `http://localhost:5000/api/semester`,
+        response = await apiClient.post(
+          `/api/semester`,
           { email, semester: selectedSemester, subjects: updatedMarks }
         );
       } else {
-        response = await axios.put(
-          `http://localhost:5000/api/semester/${encodeURIComponent(email)}/${selectedSemester}`,
+        response = await apiClient.put(
+          `/api/semester/${encodeURIComponent(email)}/${selectedSemester}`,
           { subjects: updatedMarks }
         );
       }

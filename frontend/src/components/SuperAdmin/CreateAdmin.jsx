@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import apiClient from "../../apiClient";
 
 function CreateAdmin() {
   const [formData, setFormData] = useState({ 
@@ -12,7 +12,7 @@ function CreateAdmin() {
   const handleSubmit = e => {
     e.preventDefault();
     console.log(formData); // sanity check — see everything present
-    axios.post("http://localhost:5000/api/superadmin/admins", formData, {
+    apiClient.post("/api/superadmin/admins", formData, {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     })
     .then(() => alert("Admin created!"))

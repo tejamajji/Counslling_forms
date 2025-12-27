@@ -1,12 +1,12 @@
 import { useState } from "react";
-import axios from "axios";
+import apiClient from "../../apiClient";
 
 function OverallReports() {
   const [students, setStudents] = useState([]);
   const [className, setClassName] = useState("");
 
   const fetch = () => {
-    axios.get(`http://localhost:5000/api/superadmin/reports?class=${className}`, {
+    apiClient.get(`/api/superadmin/reports?class=${className}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     })
     .then(res => setStudents(res.data))

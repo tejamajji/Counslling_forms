@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import apiClient from '../apiClient';
 import { 
   Container, Typography, TextField, Button, Alert, Paper, 
   Box, CircularProgress 
@@ -35,8 +35,8 @@ const ResetPassword = () => {
       setError('');
       setMessage('');
       
-      await axios.post(
-        `http://localhost:5000/api/auth/reset-password/${token}`, 
+      await apiClient.post(
+        `/api/auth/reset-password/${token}`, 
         { password }
       );
       
