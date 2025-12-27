@@ -41,8 +41,8 @@ const AdminUserManagement = () => {
           return;
         }
 
-        // Fetch users
-        const usersRes = await apiClient.get('/api/admin/users', config);
+        // Fetch users with role "user" only
+        const usersRes = await apiClient.get('/api/admin/users?role=user', config);
         setUsers(usersRes.data);
       } catch (err) {
         console.error('Error fetching users data:', err);
@@ -85,8 +85,8 @@ const AdminUserManagement = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Refresh users list
-      const usersRes = await apiClient.get('/api/admin/users', {
+      // Refresh users list (only users with role "user")
+      const usersRes = await apiClient.get('/api/admin/users?role=user', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(usersRes.data);

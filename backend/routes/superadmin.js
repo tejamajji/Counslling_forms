@@ -78,5 +78,16 @@ router.get("/admins", authMiddleware, superAdminMiddleware, async (req, res) => 
   }
 });
 
+router.get("/students", authMiddleware, superAdminMiddleware, async (req, res) => {
+  try {
+    // Get only users with role "user"
+    const students = await User.find({ role: "user" }).select('username email _id role');
+    res.json(students);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
 

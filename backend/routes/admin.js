@@ -11,12 +11,20 @@ const crypto = require('crypto');
 
 /**
  * @route GET /api/admin/users
- * @desc Get all users (Admin only)
+ * @desc Get all users (Admin only) - optionally filter by role
  * @access Admin
  */
 router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const { role } = req.query;
+    let query = {};
+    
+    // If role parameter is provided, filter by role
+    if (role) {
+      query.role = role;
+    }
+    
+    const users = await User.find(query).select('-password');
     res.status(200).json(users);
   } catch (err) {
     console.error(err);
