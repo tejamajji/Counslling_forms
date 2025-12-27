@@ -9,15 +9,17 @@ import Profile from './pages/Profile';
 import MarksTable from './pages/MarksTable';
 import CounselingForm from './pages/CounselingForm';
 import MentorGrading from './pages/MentorGrading';
-import AdminDashboard from './pages/AdminDashboard';
+import AdminDashboard from './admin/pages/AdminDashboard';
+import AdminUserManagement from './admin/pages/AdminUserManagement';
+import AdminDataOverview from './admin/pages/AdminDataOverview';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import SuperAdminDashboard from './components/SuperAdmin/SuperAdminDashboard';
-import ManageAdmins from './components/SuperAdmin/ManageAdmins';
-import CreateAdmin from './components/SuperAdmin/CreateAdmin';
-import StudentsList from './components/SuperAdmin/StudentsList';
-import StudentProfile from './components/SuperAdmin/StudentProfile';
-import OverallReports from './components/SuperAdmin/OverallReports';
+import SuperAdminDashboard from './admin/components/SuperAdminDashboard';
+import ManageAdmins from './admin/components/ManageAdmins';
+import CreateAdmin from './admin/components/CreateAdmin';
+import StudentsList from './admin/components/StudentsList';
+import StudentProfile from './admin/components/StudentProfile';
+import OverallReports from './admin/components/OverallReports';
 
 
 // Protected Route Component
@@ -58,7 +60,8 @@ const App = () => {
           
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
-          {/* Super Admin Routes  */}
+          <Route path="/admin/users" element={<AdminRoute element={<AdminUserManagement />} />} />
+          <Route path="/admin/data" element={<AdminRoute element={<AdminDataOverview />} />} />
 
           <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
 <Route path="/superadmin/admins" element={<ManageAdmins />} />

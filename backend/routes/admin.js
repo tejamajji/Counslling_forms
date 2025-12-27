@@ -5,6 +5,9 @@ const User = require('../models/User');
 const Profile = require('../models/Profile');
 const MentorGrading = require('../models/MentorGradingSchema');
 const Marks = require('../models/Semester');
+const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 /**
  * @route GET /api/admin/users
@@ -15,6 +18,84 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const users = await User.find().select('-password');
     res.status(200).json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * @route POST /api/admin/users
+ * @desc Create a new user (Admin only)
+ * @access Admin
+ */
+router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Generate a random password
+    const randomPassword = crypto.randomBytes(8).toString('hex');
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+    // Create new user
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: 'user' // Default role for added students
+    });
+    await newUser.save();
+
+    // Send email with credentials (optional - don't fail if email fails)
+    try {
+      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD
+          }
+        });
+
+        const mailOptions = {
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: 'Your Account Credentials',
+          html: `
+            <h1>Welcome to the Counseling Forms System</h1>
+            <p>Your account has been created by an administrator.</p>
+            <p><strong>Username:</strong> ${username}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Password:</strong> ${randomPassword}</p>
+            <p>Please log in and change your password after first login.</p>
+            <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/signup">Login Here</a></p>
+          `
+        };
+
+        await transporter.sendMail(mailOptions);
+      } else {
+        console.warn('Email credentials not configured. User created but email not sent.');
+      }
+    } catch (emailErr) {
+      console.error('Failed to send email:', emailErr);
+      // Don't fail the user creation if email fails
+    }
+
+    res.status(201).json({
+      message: 'User created successfully and credentials sent via email',
+      user: {
+        _id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
