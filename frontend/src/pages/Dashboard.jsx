@@ -16,7 +16,6 @@ const Dashboard = () => {
       const authToken = localStorage.getItem('authToken');
     
       if (!authToken) {
-        console.log('No auth token found. Redirecting to /signup');
         navigate('/signup');
         
         return;
@@ -24,39 +23,18 @@ const Dashboard = () => {
     
       try {
         // Fetch user details from localStorage
-        const userEmail = localStorage.getItem('userEmail');
-        const userName = localStorage.getItem('userName');
-        const userRole = localStorage.getItem('userRole');
-    
-        console.log("Fetched Email from localStorage:", userEmail);
-        console.log("Fetched Username from localStorage:", userName);
-        console.log("Fetched Role from localStorage:", userRole);
-    
-        // Update the user state with localStorage data
-        setUser({
-          name: userName || 'User',
-          email: userEmail || 'Not Available',
-          profilePicture: '',
-          role: userRole || 'user'
-        });
-    
-        // Fetch additional details from the backend
+        // Fetch user details from the backend
         const response = await apiClient.get('/api/auth/user', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
     
-        console.log('User Details from Backend:', response.data);
-    
         // Update the user state with backend data
-        setUser((prevUser) => ({
-          ...prevUser,
-          name: response.data.username || prevUser.name,
-          email: response.data.email || prevUser.email,
-          profilePicture: response.data.profilePicture || prevUser.profilePicture,
-          role: response.data.role || prevUser.role
-        }));
-    
-        console.log('Updated User State:', user);
+        setUser({
+          name: response.data.username || 'User',
+          email: response.data.email || 'Not Available',
+          profilePicture: response.data.profilePicture || '',
+          role: response.data.role || 'user'
+        });
       } catch (error) {
         console.error('Error fetching user details:', error);
         if (error.response?.status === 401) {
@@ -66,35 +44,9 @@ const Dashboard = () => {
     };
     
     fetchUserDetails();
-  }, [navigate, user]); // Add user to the dependency array
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem('authToken');
-      
-      const config = {
-        headers: { Authorization: `Bearer ${token}` }
-      };
-      
-      try {
-        // Fetch data without assigning unused variables
-        await Promise.all([
-          apiClient.get('/api/admin/users', config),
-          apiClient.get('/api/admin/profiles', config),
-          apiClient.get('/api/admin/mentorgradings', config),
-          apiClient.get('/api/admin/marks', config)
-        ]);
-        
-        // Handle fetched data if needed
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      }
-    };
-    fetchData();
-  }, []);
+  }, [navigate]); // Removed 'user' to prevent infinite loop
 
   const handleLogout = () => {
-    console.log('Logging out...');
     localStorage.removeItem('authToken');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
