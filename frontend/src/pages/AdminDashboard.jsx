@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import apiClient from '../apiClient';
 import {
   Box, Typography, Button, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, CircularProgress, Tabs, Tab,
@@ -37,7 +37,7 @@ const AdminDashboard = () => {
       
       try {
         // Check if user is admin
-        const userResponse = await axios.get('http://localhost:5000/api/auth/user', config);
+        const userResponse = await apiClient.get('/api/auth/user', config);
         if (userResponse.data.role !== 'admin') {
           setError('You do not have admin privileges');
           navigate('/dashboard');
@@ -46,10 +46,10 @@ const AdminDashboard = () => {
         
         // Fetch all data
         const [usersRes, profilesRes, mentorGradingsRes, marksRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/admin/users', config),
-          axios.get('http://localhost:5000/api/admin/profiles', config),
-          axios.get('http://localhost:5000/api/admin/mentorgradings', config),
-          axios.get('http://localhost:5000/api/admin/marks', config)
+          apiClient.get('/api/admin/users', config),
+          apiClient.get('/api/admin/profiles', config),
+          apiClient.get('/api/admin/mentorgradings', config),
+          apiClient.get('/api/admin/marks', config)
         ]);
         
         setUsers(usersRes.data);
@@ -94,8 +94,8 @@ const AdminDashboard = () => {
     const token = localStorage.getItem('authToken');
     
     try {
-      await axios.patch(
-        `http://localhost:5000/api/admin/users/${selectedUser._id}/role`,
+      await apiClient.patch(
+        `/api/admin/users/${selectedUser._id}/role`,
         { role: selectedRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -120,8 +120,8 @@ const AdminDashboard = () => {
     const token = localStorage.getItem('authToken');
     
     try {
-      await axios.delete(
-        `http://localhost:5000/api/admin/users/${userId}`,
+      await apiClient.delete(
+        `/api/admin/users/${userId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       

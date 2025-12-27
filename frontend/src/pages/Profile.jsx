@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../apiClient";
 import { useNavigate } from "react-router-dom";
 import "./css/Profile.css"; // We'll create this CSS file separately
 
@@ -54,7 +54,7 @@ const Profile = () => {
       }
 
       try {
-        const response = await axios.get("http://localhost:5000/api/profile", {
+        const response = await apiClient.get("/api/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -65,7 +65,7 @@ const Profile = () => {
         } else {
           setIsNewUser(true);
           // Get user email for the form
-          const userResponse = await axios.get("http://localhost:5000/api/auth/user", {
+          const userResponse = await apiClient.get("/api/auth/user", {
             headers: { Authorization: `Bearer ${token}` },
           });
           setFormData(prev => ({
@@ -132,14 +132,14 @@ const Profile = () => {
   
       let response;
       if (isNewUser) {
-        response = await axios.post(
-          "http://localhost:5000/api/profile",
+        response = await apiClient.post(
+          "/api/profile",
           dataToSend,
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
-        response = await axios.patch(
-          "http://localhost:5000/api/profile",
+        response = await apiClient.patch(
+          "/api/profile",
           dataToSend,
           { headers: { Authorization: `Bearer ${token}` } }
         );

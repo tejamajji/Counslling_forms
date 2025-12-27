@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import apiClient from "../../apiClient";
 
 function StudentsList() {
   const [students, setStudents] = useState([]);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/superadmin/students", {
+    apiClient.get("/api/superadmin/students", {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     })
     .then(res => setStudents(res.data))

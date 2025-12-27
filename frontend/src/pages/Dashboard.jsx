@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../apiClient';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -41,7 +41,7 @@ const Dashboard = () => {
         });
     
         // Fetch additional details from the backend
-        const response = await axios.get('http://localhost:5000/api/auth/user', {
+        const response = await apiClient.get('/api/auth/user', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
     
@@ -79,10 +79,10 @@ const Dashboard = () => {
       try {
         // Fetch data without assigning unused variables
         await Promise.all([
-          axios.get('http://localhost:5000/api/admin/users', config),
-          axios.get('http://localhost:5000/api/admin/profiles', config),
-          axios.get('http://localhost:5000/api/admin/mentorgradings', config),
-          axios.get('http://localhost:5000/api/admin/marks', config)
+          apiClient.get('/api/admin/users', config),
+          apiClient.get('/api/admin/profiles', config),
+          apiClient.get('/api/admin/mentorgradings', config),
+          apiClient.get('/api/admin/marks', config)
         ]);
         
         // Handle fetched data if needed

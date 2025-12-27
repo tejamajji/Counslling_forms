@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../apiClient';
 import gvplog from '../images/gvplogo.jpg';
 
 const Header = () => {
@@ -90,7 +90,7 @@ const Header = () => {
       }
 
       try {
-        const response = await axios.get('http://localhost:5000/api/auth/user', {
+        const response = await apiClient.get('/api/auth/user', {
           headers: { Authorization: `Bearer ${authToken}` },
         });
 

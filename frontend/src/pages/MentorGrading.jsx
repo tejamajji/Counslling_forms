@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../apiClient";
 import {
   Box, Typography, TextField, Button, Alert, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Rating
 } from "@mui/material";
@@ -47,7 +47,7 @@ const MentorGrading = () => {
   useEffect(() => {
     const fetchMentorGrading = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/mentorgrading/${email}`);
+        const response = await apiClient.get(`/api/mentorgrading/${email}`);
         if (response.status === 200) {
           setMentorGrading(response.data);
           setIsSaved(response.data.grading.generalDiscipline.length >= semester); // Check if the current semester is saved
@@ -147,7 +147,7 @@ const MentorGrading = () => {
   // Save mentor grading data (only for mentors)
   const handleSave = async () => {
     try {
-      const response = await axios.post(`http://localhost:5000/api/mentorgrading/${email}`, mentorGrading);
+      const response = await apiClient.post(`/api/mentorgrading/${email}`, mentorGrading);
       if (response.status === 200 || response.status === 201) {
         setError("");
         setIsSaved(true); // Mark the current semester as saved

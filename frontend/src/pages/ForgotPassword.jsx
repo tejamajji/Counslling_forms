@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import apiClient from '../apiClient';
 import { 
   Container, Typography, TextField, Button, Alert, Paper, 
   Box, CircularProgress 
@@ -26,7 +26,7 @@ const ForgotPassword = () => {
       setError('');
       setMessage('');
       
-      await axios.post('http://localhost:5000/api/auth/forgot-password', { email });
+      await apiClient.post('/api/auth/forgot-password', { email });
       
       setSuccess(true);
       setMessage('A password reset link has been sent to your email');
