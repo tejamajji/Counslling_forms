@@ -128,7 +128,7 @@ const AdminUserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => u.username?.startsWith(activeYear) || u.email?.startsWith(activeYear));
+  const filteredUsers = users.filter(u => u.username?.startsWith(activeYear));
 
   if (loading) {
     return (

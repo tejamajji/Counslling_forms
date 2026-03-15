@@ -58,8 +58,7 @@ router.get("/", authMiddleware, async (req, res, next) => {
 router.get("/:regdNo", authMiddleware, async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ regdNo: req.params.regdNo })
-      .populate('userId', 'username email');
-
+        .populate({ path: 'userId', select: 'username email assignedMentor', populate: { path: 'assignedMentor', select: 'username' } });
     if (!profile) {
       return errorResponse(res, 404, "Profile not found");
     }

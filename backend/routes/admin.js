@@ -306,8 +306,6 @@ router.post('/notify-profile/:id', authMiddleware, adminMiddleware, async (req, 
   }
 });
 
-module.exports = router;
-
 // Send Details (Email activation link to student)
 router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
@@ -334,7 +332,7 @@ router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, re
       }
     });
 
-    const resetUrl = `http://localhost:3000/activate-account/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/activate-account/${resetToken}`;
 
     const mailOptions = {
         to: student.email,
@@ -360,3 +358,5 @@ router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, re
     next(err);
   }
 });
+
+module.exports = router;

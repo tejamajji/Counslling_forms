@@ -12,6 +12,7 @@ import MentorGrading from './pages/MentorGrading';
 import AdminDashboard from './admin/pages/AdminDashboard';
 import AdminUserManagement from './admin/pages/AdminUserManagement';
 import AdminDataOverview from './admin/pages/AdminDataOverview';
+import ConsolidatedCounselingForm from './admin/pages/ConsolidatedCounselingForm';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import ActivateAccount from './pages/ActivateAccount';
@@ -72,6 +73,7 @@ const App = () => {
           <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
           <Route path="/admin/users" element={<AdminRoute element={<AdminUserManagement />} />} />
           <Route path="/admin/data" element={<AdminRoute element={<AdminDataOverview />} />} />
+          <Route path="/admin/consolidated-form/:regdNo" element={<AdminRoute element={<ConsolidatedCounselingForm />} />} />
 
           {/* Superadmin Routes */}
           <Route path="/superadmin/dashboard" element={<SuperAdminRoute element={<SuperAdminDashboard />} />} />

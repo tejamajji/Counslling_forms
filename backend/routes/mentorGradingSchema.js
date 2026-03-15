@@ -16,6 +16,7 @@ router.post('/:email', async (req, res, next) => {
       // Update the existing grading
       mentorGrading.grading = gradingData.grading || mentorGrading.grading;
       mentorGrading.remarks = gradingData.remarks || mentorGrading.remarks;
+      mentorGrading.dates = gradingData.dates || mentorGrading.dates;
       mentorGrading.placement = gradingData.placement || mentorGrading.placement;
       mentorGrading.higherEducation = gradingData.higherEducation || mentorGrading.higherEducation;
       mentorGrading.initials = gradingData.initials || mentorGrading.initials;

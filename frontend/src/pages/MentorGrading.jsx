@@ -23,8 +23,10 @@ const MentorGrading = () => {
       extracurricularActivities: [],
       behaviorInHostel: [],
       overallGrading: [],
+        disciplinaryActions: [],
     },
     remarks: [],
+      dates: [],
     placement: {
       companyName: "",
       jobRole: "",
@@ -46,8 +48,6 @@ const MentorGrading = () => {
   
   const [assignedStudents, setAssignedStudents] = useState([]);
   const [activeYear, setActiveYear] = useState('325');
-  const [selectedStudentEmail, setSelectedStudentEmail] = useState('');
-  const [currentUserRole, setCurrentUserRole] = useState('user');
   // Fetch mentor grading data for the student
   useEffect(() => {
     const fetchMentorGrading = async () => {
@@ -72,7 +72,7 @@ const MentorGrading = () => {
         }
         if(!targetEmail) { throw new Error("No student email found"); }
 
-        const response = await apiClient.get(`/api/mentorgrading/${targetEmail}`);
+        const response = await apiClient.get(`/api/mentorGrading/${targetEmail}`);
         if (response.status === 200 && response.data && response.data.grading) {
           setMentorGrading({
               ...response.data,
@@ -97,7 +97,6 @@ const MentorGrading = () => {
   useEffect(() => {
     const checkMentor = async () => {
       const userRole = localStorage.getItem("userRole") || localStorage.getItem("role"); 
-      setCurrentUserRole(userRole);
       const mentorStatus = (userRole === "mentor" || userRole === "admin" || userRole === "superadmin");
       setIsMentor(mentorStatus);
       
@@ -131,7 +130,18 @@ const MentorGrading = () => {
       },
     }));
   };
-
+    // Handle changes in dates (only for mentors)
+    const handleDateChange = (value) => {
+      if (!isMentor) return; // Only mentors can edit
+      setMentorGrading((prev) => ({
+        ...prev,
+        dates: [
+          ...(prev.dates || []).slice(0, semester - 1),
+          value,
+          ...(prev.dates || []).slice(semester),
+        ],
+      }));
+    };
   // Handle changes in remarks (only for mentors)
   const handleRemarksChange = (value) => {
     if (!isMentor) return; // Only mentors can edit
@@ -188,7 +198,7 @@ const MentorGrading = () => {
   // Save mentor grading data (only for mentors)
   const handleSave = async () => {
     try {
-      const response = await apiClient.post(`/api/mentorgrading/${mentorGrading.email}`, mentorGrading);
+      const response = await apiClient.post(`/api/mentorGrading/${mentorGrading.email}`, mentorGrading);
       if (response.status === 200 || response.status === 201) {
         setError("");
         setIsSaved(true); // Mark the current semester as saved
@@ -361,28 +371,41 @@ const MentorGrading = () => {
           onChange={(e) => handleRemarksChange(e.target.value)}
           variant="outlined"
           disabled={!isMentor}
-        />
-      </Box>
+            sx={{ mb: 2 }}
+          />
 
-      <Box sx={{ marginBottom: "20px" }}>
-        <Typography variant="h6">Initials</Typography>
-        <Box sx={{ marginBottom: "10px" }}>
-          <Typography>Student Initials</Typography>
-          <Rating
-            name="student-initials"
-            value={mentorGrading.initials.student[semester - 1] || 0}
-            onChange={(e, newValue) => handleInitialsChange("student", newValue)}
-            max={5}
+          <Typography variant="h6" sx={{ mt: 2 }}>Date of Remarks</Typography>
+          <TextField
+            fullWidth
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            value={mentorGrading.dates?.[semester - 1] || ""}
+            onChange={(e) => handleDateChange(e.target.value)}
+            variant="outlined"
             disabled={!isMentor}
           />
         </Box>
-        <Box>
-          <Typography>Mentor Initials</Typography>
-          <Rating
-            name="mentor-initials"
-            value={mentorGrading.initials.mentor[semester - 1] || 0}
-            onChange={(e, newValue) => handleInitialsChange("mentor", newValue)}
-            max={5}
+
+        <Box sx={{ marginBottom: "20px", display: "flex", gap: "20px" }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Student Sign (Initials)</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              value={mentorGrading.initials.student[semester - 1] || ""}
+              onChange={(e) => handleInitialsChange("student", e.target.value)}
+              placeholder="e.g. JB"
+              disabled={!isMentor}
+            />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Mentor Sign (Initials)</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              value={mentorGrading.initials.mentor[semester - 1] || ""}
+              onChange={(e) => handleInitialsChange("mentor", e.target.value)}
+              placeholder="e.g. Dr. S"
             disabled={!isMentor}
           />
         </Box>

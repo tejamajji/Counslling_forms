@@ -9,6 +9,8 @@
     "@szhsin/react-accordion": "^1.4.0",
     "axios": "^1.7.9",
     "axios-retry": "^4.5.0",
+    "browserslist": "^4.28.1",
+    "caniuse-lite": "^1.0.30001779",
     "framer-motion": "^12.4.3",
     "lucide-react": "^0.469.0",
     "react": "^18.3.1",

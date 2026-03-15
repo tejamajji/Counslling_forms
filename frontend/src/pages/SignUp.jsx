@@ -104,7 +104,7 @@ const Auth = () => {
       if (data.role === 'superadmin') {
         navigate('/superadmin/dashboard');
       } else if (data.role === 'admin') {
-          navigate('/dashboard');
+          navigate('/admin');
         } else {
         navigate('/dashboard'); 
       }

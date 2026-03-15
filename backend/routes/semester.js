@@ -39,6 +39,19 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+
+// Get All Semesters for an Email
+router.get('/all/:email', async (req, res, next) => {
+  const { email } = req.params;
+  try {
+    const marksRecord = await Marks.findOne({ email });
+    if (!marksRecord) {
+      return res.status(200).json({ semesters: [] }); // return empty gracefully
+    }
+    return res.status(200).json(marksRecord);
+  } catch (err) { next(err); }
+});
+
 // Get Marks for a Specific Semester
 router.get('/:email/:semester', async (req, res, next) => {
   const { email, semester } = req.params;
