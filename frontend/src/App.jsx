@@ -23,6 +23,7 @@ import StudentsList from './admin/components/StudentsList';
 import StudentProfile from './admin/components/StudentProfile';
 import OverallReports from './admin/components/OverallReports';
 import MentorAllocation from './admin/components/MentorAllocation';
+import PeopleOverview from './admin/components/PeopleOverview';
 
 
 // Protected Route Component
@@ -83,6 +84,7 @@ const App = () => {
           <Route path="/superadmin/students/:id" element={<SuperAdminRoute element={<StudentProfile />} />} />
           <Route path="/superadmin/reports" element={<SuperAdminRoute element={<OverallReports />} />} />
           <Route path="/superadmin/allocation" element={<SuperAdminRoute element={<MentorAllocation />} />} />
+          <Route path="/superadmin/overview" element={<SuperAdminRoute element={<PeopleOverview />} />} />
 
           
         </Routes>

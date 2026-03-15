@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../apiClient';
-import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert, TablePagination, TextField } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDataOverview = () => {
@@ -9,6 +9,9 @@ const AdminDataOverview = () => {
   const [profiles, setProfiles] = useState([]);
   const [mentorGradings, setMentorGradings] = useState([]);
   const [activeYear, setActiveYear] = useState('325'); 
+  const [rollSearch, setRollSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,7 +76,17 @@ const AdminDataOverview = () => {
     fetchData();
   }, [navigate]);
 
-  const filteredProfiles = profiles.filter(p => p.regdNo?.startsWith(activeYear) || p.email?.startsWith(activeYear));
+  const filteredProfiles = profiles.filter((p) => {
+    const byYear = p.regdNo?.startsWith(activeYear) || p.email?.startsWith(activeYear);
+    const q = rollSearch.trim().toLowerCase();
+    const bySearch = !q || p.regdNo?.toLowerCase().includes(q);
+    return byYear && bySearch;
+  });
+  const paginatedProfiles = filteredProfiles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  useEffect(() => {
+    setPage(0);
+  }, [activeYear, rollSearch]);
 
   if (loading) return <Box display="flex" justifyContent="center" mt={5}><CircularProgress /></Box>;
 
@@ -95,6 +108,16 @@ const AdminDataOverview = () => {
         ))}
       </Box>
 
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
+        <TextField
+          size="small"
+          label="Search by Roll Number"
+          value={rollSearch}
+          onChange={(e) => setRollSearch(e.target.value)}
+          sx={{ width: '320px' }}
+        />
+      </Box>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -108,7 +131,7 @@ const AdminDataOverview = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredProfiles.map((profile) => {
+            {paginatedProfiles.map((profile) => {
               const grading = mentorGradings.find(g => g.email === profile.email);
               const hasGrading = !!grading;
               const overallGrades = grading?.grading?.overallGrading || [];
@@ -144,6 +167,18 @@ const AdminDataOverview = () => {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={filteredProfiles.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50]}
+        />
       </TableContainer>
     </Box>
   );

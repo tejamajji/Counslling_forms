@@ -84,6 +84,18 @@ const SuperAdminDashboard = () => {
               variant="contained"
               fullWidth
               size="large"
+              onClick={() => navigate('/superadmin/overview')}
+              sx={{ padding: '15px', mt: 1, backgroundColor: '#0288d1', '&:hover': { backgroundColor: '#0277bd' } }}
+            >
+              People Overview (Students & Admins)
+            </Button>
+          </Grid>
+
+          <Grid item xs={12} sm={8}>
+            <Button
+              variant="contained"
+              fullWidth
+              size="large"
               sx={{ padding: '15px', mt: 1, backgroundColor: '#9c27b0', color: '#fff', '&:hover': { backgroundColor: '#7b1fa2' } }}
               onClick={() => navigate('/admin')}
             >

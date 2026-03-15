@@ -8,6 +8,8 @@ function OverallReports() {
   const [className, setClassName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const fetch = () => {
     let url = `/api/superadmin/reports?class=${encodeURIComponent(className)}`;
@@ -17,9 +19,14 @@ function OverallReports() {
     apiClient.get(url, {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` }
     })
-    .then(res => setStudents(res.data))
+    .then(res => {
+      setStudents(res.data);
+      setPage(0);
+    })
     .catch(err => console.error(err));
   };
+
+  const paginatedStudents = students.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const exportCSV = () => {
     if (students.length === 0) return;
@@ -66,7 +73,7 @@ function OverallReports() {
           </tr>
         </thead>
         <tbody>
-          {students.map(s => (
+          {paginatedStudents.map(s => (
             <tr key={s._id}>
               <td>{s.username || s.name}</td>
               <td>{s.email}</td>
@@ -75,6 +82,16 @@ function OverallReports() {
           ))}
         </tbody>
       </table>
+      <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "12px" }}>
+        <button onClick={() => setPage(prev => Math.max(prev - 1, 0))} disabled={page === 0}>Prev</button>
+        <span>Page {students.length === 0 ? 0 : page + 1} of {Math.max(1, Math.ceil(students.length / rowsPerPage))}</span>
+        <button onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(students.length / rowsPerPage) - 1))} disabled={page >= Math.ceil(students.length / rowsPerPage) - 1}>Next</button>
+        <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0); }}>
+          <option value={10}>10 / page</option>
+          <option value={25}>25 / page</option>
+          <option value={50}>50 / page</option>
+        </select>
+      </div>
     </div>
   );
 }

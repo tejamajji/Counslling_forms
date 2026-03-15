@@ -4,7 +4,7 @@ import {
   Box, Typography, Button, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, CircularProgress,
   Alert, Dialog, DialogActions, DialogContent, DialogContentText,
-  DialogTitle, TextField
+  DialogTitle, TextField, TablePagination, MenuItem, Checkbox
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,13 +12,41 @@ const AdminUserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
-  const [mentorGradings, setMentorGradings] = useState([]);
+  const [mentors, setMentors] = useState([]);
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newYearOfStudy, setNewYearOfStudy] = useState('');
+  const [selectedMentorId, setSelectedMentorId] = useState('');
+  const [smartStartRoll, setSmartStartRoll] = useState('');
+  const [smartEndRoll, setSmartEndRoll] = useState('');
+  const [smartDomain, setSmartDomain] = useState('gvpce.ac.in');
+  const [smartYearOfStudy, setSmartYearOfStudy] = useState('');
+  const [smartCreateLoading, setSmartCreateLoading] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
-  const [activeYear, setActiveYear] = useState('325'); // Default 1st year
+  const [activeYear, setActiveYear] = useState('1');
+  const [rollSearch, setRollSearch] = useState('');
+  const [mentorReassignMap, setMentorReassignMap] = useState({});
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [recalculateLoading, setRecalculateLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const navigate = useNavigate();
+
+  const deriveYearOfStudy = (rollNumber, allUsers) => {
+    const prefix = String(rollNumber || '').slice(0, 3);
+    if (!/^\d{3}$/.test(prefix)) return null;
+
+    const prefixes = [...new Set(
+      allUsers
+        .map((u) => String(u.username || '').slice(0, 3))
+        .filter((p) => /^\d{3}$/.test(p))
+    )].sort((a, b) => Number(b) - Number(a));
+
+    const idx = prefixes.indexOf(prefix);
+    return idx >= 0 ? idx + 1 : null;
+  };
 
   // Fetch users data on component mount
   useEffect(() => {
@@ -37,6 +65,8 @@ const AdminUserManagement = () => {
       try {
         // Check if user is admin
         const userResponse = await apiClient.get('/api/auth/user', config);
+        const role = userResponse.data.role;
+        setIsSuperadmin(role === 'superadmin');
         if (userResponse.data.role !== 'admin' && userResponse.data.role !== 'superadmin') {
           setError('You do not have admin privileges');
           navigate('/dashboard');
@@ -44,12 +74,13 @@ const AdminUserManagement = () => {
         }
 
         // Fetch users with role "user" only
-        const [usersRes, mentorGradingsRes] = await Promise.all([
-          apiClient.get('/api/admin/users?role=user', config),
-          apiClient.get('/api/admin/mentorgradings', config)
-        ]);
+        const usersRes = await apiClient.get('/api/admin/users?role=user', config);
         setUsers(usersRes.data);
-        setMentorGradings(mentorGradingsRes.data);
+
+        if (role === 'superadmin') {
+          const mentorsRes = await apiClient.get('/api/superadmin/mentors-with-students', config);
+          setMentors(mentorsRes.data || []);
+        }
       } catch (err) {
         console.error('Error fetching users data:', err);
         setError('Failed to fetch data. Please try again.');
@@ -73,11 +104,13 @@ const AdminUserManagement = () => {
     setOpenAddDialog(false);
     setNewUsername('');
     setNewEmail('');
+    setNewYearOfStudy('');
+    setSelectedMentorId('');
   };
 
   const handleAddStudent = async () => {
-    if (!newUsername.trim() || !newEmail.trim()) {
-      setError('Please fill in all fields');
+    if (!newUsername.trim()) {
+      setError('Roll number is required');
       return;
     }
 
@@ -87,7 +120,12 @@ const AdminUserManagement = () => {
     try {
       await apiClient.post(
         '/api/admin/users',
-        { username: newUsername, email: newEmail },
+        {
+          username: newUsername,
+          email: newEmail || undefined,
+          yearOfStudy: newYearOfStudy || undefined,
+          mentorId: isSuperadmin ? selectedMentorId || undefined : undefined
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -104,6 +142,126 @@ const AdminUserManagement = () => {
       setError(err.response?.data?.error || 'Failed to add student. Please try again.');
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const handleReassignMentor = async (studentId) => {
+    const mentorId = mentorReassignMap[studentId];
+    if (!mentorId) {
+      setError('Please select a mentor before reassigning.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      await apiClient.post('/api/superadmin/assign-students', {
+        mentorId,
+        studentIds: [studentId]
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      const usersRes = await apiClient.get('/api/admin/users?role=user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUsers(usersRes.data);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to reassign mentor.');
+    }
+  };
+
+  const handleSmartCreate = async () => {
+    if (!smartStartRoll.trim() || !smartEndRoll.trim()) {
+      setError('Please provide start and end roll numbers for smart create');
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    setSmartCreateLoading(true);
+
+    try {
+      const res = await apiClient.post(
+        '/api/admin/users/smart-create',
+        {
+          startRollNumber: smartStartRoll,
+          endRollNumber: smartEndRoll,
+          emailDomain: smartDomain,
+          yearOfStudy: smartYearOfStudy || undefined,
+          mentorId: isSuperadmin ? selectedMentorId || undefined : undefined
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const usersRes = await apiClient.get('/api/admin/users?role=user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUsers(usersRes.data);
+      alert(res.data?.message || 'Smart create completed. Use Send Details manually when needed.');
+      setError('');
+      setActiveYear(smartYearOfStudy || 'all');
+      setPage(0);
+      setSmartStartRoll('');
+      setSmartEndRoll('');
+      setSmartYearOfStudy('');
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Smart create failed. Please try again.');
+    } finally {
+      setSmartCreateLoading(false);
+    }
+  };
+
+  const handleBulkDeleteUsers = async () => {
+    if (selectedUserIds.length === 0) {
+      setError('Select at least one student to delete.');
+      return;
+    }
+
+    if (!window.confirm(`Delete ${selectedUserIds.length} selected students?`)) {
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    try {
+      await apiClient.post('/api/admin/users/bulk-delete',
+        { userIds: selectedUserIds },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setUsers((prev) => prev.filter((user) => !selectedUserIds.includes(user._id)));
+      setSelectedUserIds([]);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete selected students.');
+    }
+  };
+
+  const getFirstYearPrefix = () => {
+    const prefixes = [...new Set(
+      users
+        .map((u) => String(u.username || '').slice(0, 3))
+        .filter((p) => /^\d{3}$/.test(p))
+    )].sort((a, b) => Number(b) - Number(a));
+
+    return prefixes[0] || null;
+  };
+
+  const handleManualRecalculateYears = async () => {
+    try {
+      setRecalculateLoading(true);
+      const token = localStorage.getItem('authToken');
+      const recalcRes = await apiClient.post('/api/superadmin/students/recalculate-years', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const usersRes = await apiClient.get('/api/admin/users?role=user', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUsers(usersRes.data);
+      alert(recalcRes.data?.message || 'Years recalculated successfully');
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to recalculate years');
+    } finally {
+      setRecalculateLoading(false);
     }
   };
 
@@ -128,7 +286,22 @@ const AdminUserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => u.username?.startsWith(activeYear));
+  const filteredUsers = users.filter((u) => {
+    const computedYear = u.yearOfStudy || deriveYearOfStudy(u.username, users);
+    const byYear = activeYear === 'all' || String(computedYear || '') === activeYear;
+    const q = rollSearch.trim().toLowerCase();
+    const bySearch = !q || u.username?.toLowerCase().includes(q);
+    return byYear && bySearch;
+  });
+  const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const firstYearPrefix = getFirstYearPrefix();
+  const selectedFilteredCount = filteredUsers.filter((u) => selectedUserIds.includes(u._id)).length;
+  const allFilteredSelected = filteredUsers.length > 0 && selectedFilteredCount === filteredUsers.length;
+  const someFilteredSelected = selectedFilteredCount > 0 && !allFilteredSelected;
+
+  useEffect(() => {
+    setPage(0);
+  }, [activeYear, rollSearch]);
 
   if (loading) {
     return (
@@ -150,6 +323,10 @@ const AdminUserManagement = () => {
         </Alert>
       )}
 
+      <Alert severity="info" sx={{ marginBottom: '20px' }}>
+        Auto year mode 1st year roll prefix: <strong>{firstYearPrefix || 'N/A'}</strong>. Students created with the Year dropdown stay in the selected year.
+      </Alert>
+
       <Box sx={{ marginBottom: '20px' }}>
         <Button variant="contained" onClick={() => navigate('/admin')} sx={{ marginRight: '10px' }}>
           Back to Admin Dashboard
@@ -160,13 +337,121 @@ const AdminUserManagement = () => {
         <Button variant="contained" color="success" onClick={handleOpenAddDialog}>
           Add Student
         </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          sx={{ marginLeft: '10px' }}
+          disabled={selectedUserIds.length === 0}
+          onClick={handleBulkDeleteUsers}
+        >
+          Delete Selected ({selectedUserIds.length})
+        </Button>
+        {isSuperadmin && (
+          <Button
+            variant="contained"
+            color="warning"
+            sx={{ marginLeft: '10px' }}
+            disabled={recalculateLoading}
+            onClick={handleManualRecalculateYears}
+          >
+            {recalculateLoading ? 'Recalculating...' : 'Recalculate Years'}
+          </Button>
+        )}
       </Box>
 
+      <Alert severity="warning" sx={{ marginBottom: '16px' }}>
+        Multiple delete: tick the checkboxes in the first column, then click Delete Selected.
+      </Alert>
+
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Smart Create Students (Range)</Typography>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            id="smart-start-roll"
+            name="smartStartRoll"
+            size="small"
+            label="Start Roll Number"
+            value={smartStartRoll}
+            onChange={(e) => setSmartStartRoll(e.target.value)}
+            sx={{ width: 220 }}
+            helperText="Example: 322103311001"
+          />
+          <TextField
+            id="smart-end-roll"
+            name="smartEndRoll"
+            size="small"
+            label="End Roll Number"
+            value={smartEndRoll}
+            onChange={(e) => setSmartEndRoll(e.target.value)}
+            sx={{ width: 220 }}
+          />
+          <TextField
+            id="smart-email-domain"
+            name="smartEmailDomain"
+            size="small"
+            label="Email Domain"
+            value={smartDomain}
+            onChange={(e) => setSmartDomain(e.target.value)}
+            sx={{ width: 180 }}
+          />
+          <TextField
+            id="smart-year-of-study"
+            name="smartYearOfStudy"
+            select
+            size="small"
+            label="Year"
+            value={smartYearOfStudy}
+            onChange={(e) => setSmartYearOfStudy(e.target.value)}
+            sx={{ width: 160 }}
+            helperText="Pick 1-4 to set the year directly"
+          >
+            <MenuItem value="">Auto by roll prefix</MenuItem>
+            <MenuItem value="1">1st Year</MenuItem>
+            <MenuItem value="2">2nd Year</MenuItem>
+            <MenuItem value="3">3rd Year</MenuItem>
+            <MenuItem value="4">4th Year</MenuItem>
+          </TextField>
+          {isSuperadmin && (
+            <TextField
+              id="smart-mentor-id"
+              name="smartMentorId"
+              select
+              size="small"
+              label="Assign Mentor"
+              value={selectedMentorId}
+              onChange={(e) => setSelectedMentorId(e.target.value)}
+              sx={{ width: 220 }}
+            >
+              <MenuItem value="">No mentor selected</MenuItem>
+              {mentors.map((m) => (
+                <MenuItem key={m._id} value={m._id}>{m.username}</MenuItem>
+              ))}
+            </TextField>
+          )}
+          <Button variant="contained" onClick={handleSmartCreate} disabled={smartCreateLoading}>
+            {smartCreateLoading ? 'Creating...' : 'Smart Create'}
+          </Button>
+        </Box>
+      </Paper>
+
       <Box sx={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
-        <Button variant={activeYear === '325' ? 'contained' : 'outlined'} onClick={() => setActiveYear('325')}>1st Year</Button>
-        <Button variant={activeYear === '324' ? 'contained' : 'outlined'} onClick={() => setActiveYear('324')}>2nd Year</Button>
-        <Button variant={activeYear === '323' ? 'contained' : 'outlined'} onClick={() => setActiveYear('323')}>3rd Year</Button>
-        <Button variant={activeYear === '322' ? 'contained' : 'outlined'} onClick={() => setActiveYear('322')}>4th Year</Button>
+        <Button variant={activeYear === 'all' ? 'contained' : 'outlined'} onClick={() => setActiveYear('all')}>All</Button>
+        <Button variant={activeYear === '1' ? 'contained' : 'outlined'} onClick={() => setActiveYear('1')}>1st Year</Button>
+        <Button variant={activeYear === '2' ? 'contained' : 'outlined'} onClick={() => setActiveYear('2')}>2nd Year</Button>
+        <Button variant={activeYear === '3' ? 'contained' : 'outlined'} onClick={() => setActiveYear('3')}>3rd Year</Button>
+        <Button variant={activeYear === '4' ? 'contained' : 'outlined'} onClick={() => setActiveYear('4')}>4th Year</Button>
+      </Box>
+
+      <Box sx={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+        <TextField
+          id="student-roll-search"
+          name="rollSearch"
+          size="small"
+          label="Search by Roll Number"
+          value={rollSearch}
+          onChange={(e) => setRollSearch(e.target.value)}
+          sx={{ width: '320px' }}
+        />
       </Box>
 
       <Paper sx={{ width: '100%' }}>
@@ -174,24 +459,74 @@ const AdminUserManagement = () => {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={allFilteredSelected}
+                    indeterminate={someFilteredSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const idsToAdd = filteredUsers.map((u) => u._id);
+                        setSelectedUserIds((prev) => [...new Set([...prev, ...idsToAdd])]);
+                      } else {
+                        const idsToRemove = new Set(filteredUsers.map((u) => u._id));
+                        setSelectedUserIds((prev) => prev.filter((id) => !idsToRemove.has(id)));
+                      }
+                    }}
+                  />
+                </TableCell>
                 <TableCell><b>Username</b></TableCell>
                 <TableCell><b>Email</b></TableCell>
+                <TableCell><b>Year</b></TableCell>
                 <TableCell><b>Profile Progress</b></TableCell>
+                {isSuperadmin && <TableCell><b>Mentor Reassignment</b></TableCell>}
                 <TableCell><b>Actions</b></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredUsers.map((user) => {
-                const userGrading = mentorGradings.find(g => g.email === user.email);
-                const isGraded = userGrading && userGrading.grading && userGrading.grading.overallGrading && userGrading.grading.overallGrading.length > 0;
+              {paginatedUsers.map((user) => {
+                const computedYear = user.yearOfStudy || deriveYearOfStudy(user.username, users);
                 
                 return (
                 <TableRow key={user._id}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedUserIds.includes(user._id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedUserIds((prev) => [...new Set([...prev, user._id])]);
+                        } else {
+                          setSelectedUserIds((prev) => prev.filter((id) => id !== user._id));
+                        }
+                      }}
+                    />
+                  </TableCell>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>{computedYear ? `${computedYear}${computedYear === 1 ? 'st' : computedYear === 2 ? 'nd' : computedYear === 3 ? 'rd' : 'th'}` : '-'}</TableCell>
                   <TableCell>
                     {user.profileCompletion !== undefined ? `${user.profileCompletion}%` : '0%'}
                   </TableCell>
+                  {isSuperadmin && (
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          select
+                          size="small"
+                          value={mentorReassignMap[user._id] || ''}
+                          onChange={(e) => setMentorReassignMap(prev => ({ ...prev, [user._id]: e.target.value }))}
+                          sx={{ minWidth: 160 }}
+                        >
+                          <MenuItem value="">Select mentor</MenuItem>
+                          {mentors.map((m) => (
+                            <MenuItem key={m._id} value={m._id}>{m.username}</MenuItem>
+                          ))}
+                        </TextField>
+                        <Button size="small" variant="outlined" onClick={() => handleReassignMentor(user._id)}>
+                          Reassign
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  )}
                   <TableCell>
                                           {!user.hasLoggedIn && (
                         <Button
@@ -248,6 +583,18 @@ const AdminUserManagement = () => {
               )})}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={filteredUsers.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
         </TableContainer>
       </Paper>
 
@@ -256,27 +603,68 @@ const AdminUserManagement = () => {
         <DialogTitle>Add New Student</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Enter the details for the new student. They will receive an email with their login credentials.
+            Enter the details for the new student. Credentials are NOT emailed automatically. Use Send Details manually.
           </DialogContentText>
           <TextField
+            id="new-student-roll-number"
+            name="newUsername"
             autoFocus
             margin="dense"
-            label="Username"
+            label="Roll Number"
             fullWidth
             variant="outlined"
             value={newUsername}
             onChange={(e) => setNewUsername(e.target.value)}
             sx={{ marginTop: '20px' }}
+            helperText="Use full roll format: 322103311001"
           />
           <TextField
+            id="new-student-email"
+            name="newEmail"
             margin="dense"
-            label="Email"
+            label="Email (optional)"
             type="email"
             fullWidth
             variant="outlined"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
+          <TextField
+            id="new-student-year-of-study"
+            name="newYearOfStudy"
+            select
+            margin="dense"
+            label="Year"
+            fullWidth
+            variant="outlined"
+            value={newYearOfStudy}
+            onChange={(e) => setNewYearOfStudy(e.target.value)}
+            helperText="Pick 1-4 to place the student directly in that year"
+          >
+            <MenuItem value="">Auto by roll prefix</MenuItem>
+            <MenuItem value="1">1st Year</MenuItem>
+            <MenuItem value="2">2nd Year</MenuItem>
+            <MenuItem value="3">3rd Year</MenuItem>
+            <MenuItem value="4">4th Year</MenuItem>
+          </TextField>
+          {isSuperadmin && (
+            <TextField
+              id="new-student-mentor-id"
+              name="newStudentMentorId"
+              select
+              margin="dense"
+              label="Assign Mentor"
+              fullWidth
+              variant="outlined"
+              value={selectedMentorId}
+              onChange={(e) => setSelectedMentorId(e.target.value)}
+            >
+              <MenuItem value="">No mentor selected</MenuItem>
+              {mentors.map((m) => (
+                <MenuItem key={m._id} value={m._id}>{m.username}</MenuItem>
+              ))}
+            </TextField>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAddDialog}>Cancel</Button>

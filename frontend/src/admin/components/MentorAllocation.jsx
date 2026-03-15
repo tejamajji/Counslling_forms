@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Paper, Select, MenuItem, FormControl, InputLabel, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Grid, Checkbox } from '@mui/material';
+import { Box, Typography, Button, Paper, Select, MenuItem, FormControl, InputLabel, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Grid, Checkbox, TablePagination } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../apiClient';
 
@@ -15,7 +15,13 @@ const MentorAllocation = () => {
   // 1st year (325), 2nd year (324), 3rd year (323), 4th year (322)
   const [activeYear, setActiveYear] = useState('325'); // Use prefix defaults
   const [assignedActiveYear, setAssignedActiveYear] = useState('325'); // For filtering assigned students
+  const [unassignedRollSearch, setUnassignedRollSearch] = useState('');
+  const [assignedRollSearch, setAssignedRollSearch] = useState('');
   const [selectedStudents, setSelectedStudents] = useState([]);
+  const [unassignedPage, setUnassignedPage] = useState(0);
+  const [unassignedRowsPerPage, setUnassignedRowsPerPage] = useState(10);
+  const [assignedPage, setAssignedPage] = useState(0);
+  const [assignedRowsPerPage, setAssignedRowsPerPage] = useState(10);
 
   const fetchData = async () => {
     try {
@@ -44,8 +50,24 @@ const MentorAllocation = () => {
     fetchData();
   }, []);
 
-  // Filter students based on active year (first 3 digits of username/rollnumber)
-  const filteredStudents = unassignedStudents.filter(s => s.username?.startsWith(activeYear));
+  // Filter students based on active year and optional roll-number search
+  const yearFilteredStudents = unassignedStudents.filter(s => s.username?.startsWith(activeYear));
+  const filteredStudents = yearFilteredStudents.filter((s) => {
+    const q = unassignedRollSearch.trim().toLowerCase();
+    return !q || s.username?.toLowerCase().includes(q);
+  });
+  const paginatedUnassignedStudents = filteredStudents.slice(
+    unassignedPage * unassignedRowsPerPage,
+    unassignedPage * unassignedRowsPerPage + unassignedRowsPerPage
+  );
+
+  useEffect(() => {
+    setUnassignedPage(0);
+  }, [activeYear, unassignedRollSearch]);
+
+  useEffect(() => {
+    setAssignedPage(0);
+  }, [selectedMentor, assignedActiveYear, assignedRollSearch]);
 
   const handleManualAssign = async () => {
     if (!selectedMentor) return alert("Select a mentor first.");
@@ -73,12 +95,12 @@ const MentorAllocation = () => {
     const count = parseInt(assignedCountToGive);
     if (!count || count <= 0) return alert("Enter valid number of slots.");
     
-    if (filteredStudents.length < count) {
-       return alert(`Only ${filteredStudents.length} students available in this year. Select fewer.`);
+     if (yearFilteredStudents.length < count) {
+       return alert(`Only ${yearFilteredStudents.length} students available in this year. Select fewer.`);
     }
 
     // Pick 'count' random students from the filtered list
-    const shuffled = [...filteredStudents].sort(() => 0.5 - Math.random());
+     const shuffled = [...yearFilteredStudents].sort(() => 0.5 - Math.random());
     const selectedList = shuffled.slice(0, count).map(s => s._id);
 
     try {
@@ -179,10 +201,26 @@ const MentorAllocation = () => {
                   <Button size="small" variant={assignedActiveYear === '323' ? 'contained' : 'outlined'} onClick={() => setAssignedActiveYear('323')}>3rd Year</Button>
                   <Button size="small" variant={assignedActiveYear === '322' ? 'contained' : 'outlined'} onClick={() => setAssignedActiveYear('322')}>4th Year</Button>
                 </Box>
+                <TextField
+                  size="small"
+                  label="Search by Roll Number"
+                  value={assignedRollSearch}
+                  onChange={(e) => setAssignedRollSearch(e.target.value)}
+                  sx={{ my: 1, width: '100%' }}
+                />
 
                 {(() => {
                    const mentorStudents = allStudents.filter(s => s.assignedMentor === selectedMentor);
-                   const filteredMentorStudents = mentorStudents.filter(s => s.username?.startsWith(assignedActiveYear));
+                   const filteredMentorStudents = mentorStudents.filter((s) => {
+                     const byYear = s.username?.startsWith(assignedActiveYear);
+                     const q = assignedRollSearch.trim().toLowerCase();
+                     const bySearch = !q || s.username?.toLowerCase().includes(q);
+                     return byYear && bySearch;
+                   });
+                   const paginatedMentorStudents = filteredMentorStudents.slice(
+                     assignedPage * assignedRowsPerPage,
+                     assignedPage * assignedRowsPerPage + assignedRowsPerPage
+                   );
                    return (
                      <>
                         <Typography variant="body2" sx={{ mb: 1 }}>
@@ -197,7 +235,7 @@ const MentorAllocation = () => {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {filteredMentorStudents.map(student => (
+                              {paginatedMentorStudents.map(student => (
                                 <TableRow key={student._id}>
                                   <TableCell>{student.username}</TableCell>
                                   <TableCell align="right">
@@ -218,6 +256,18 @@ const MentorAllocation = () => {
                               )}
                             </TableBody>
                           </Table>
+                          <TablePagination
+                            component="div"
+                            count={filteredMentorStudents.length}
+                            page={assignedPage}
+                            onPageChange={(_, newPage) => setAssignedPage(newPage)}
+                            rowsPerPage={assignedRowsPerPage}
+                            onRowsPerPageChange={(e) => {
+                              setAssignedRowsPerPage(parseInt(e.target.value, 10));
+                              setAssignedPage(0);
+                            }}
+                            rowsPerPageOptions={[10, 25, 50]}
+                          />
                         </TableContainer>
                      </>
                    )
@@ -237,6 +287,14 @@ const MentorAllocation = () => {
               <Button variant={activeYear === '323' ? 'contained' : 'outlined'} onClick={() => setActiveYear('323')}>3rd Year</Button>
               <Button variant={activeYear === '322' ? 'contained' : 'outlined'} onClick={() => setActiveYear('322')}>4th Year</Button>
             </Box>
+
+            <TextField
+              size="small"
+              label="Search by Roll Number"
+              value={unassignedRollSearch}
+              onChange={(e) => setUnassignedRollSearch(e.target.value)}
+              sx={{ mb: 2, width: '320px' }}
+            />
 
             <Typography variant="subtitle1" color="primary">
               Unassigned Students in this Year: {filteredStudents.length}
@@ -271,7 +329,7 @@ const MentorAllocation = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredStudents.map(student => (
+                  {paginatedUnassignedStudents.map(student => (
                     <TableRow key={student._id}>
                       <TableCell padding="checkbox">
                         <Checkbox 
@@ -290,6 +348,18 @@ const MentorAllocation = () => {
                   )}
                 </TableBody>
               </Table>
+              <TablePagination
+                component="div"
+                count={filteredStudents.length}
+                page={unassignedPage}
+                onPageChange={(_, newPage) => setUnassignedPage(newPage)}
+                rowsPerPage={unassignedRowsPerPage}
+                onRowsPerPageChange={(e) => {
+                  setUnassignedRowsPerPage(parseInt(e.target.value, 10));
+                  setUnassignedPage(0);
+                }}
+                rowsPerPageOptions={[10, 25, 50]}
+              />
             </TableContainer>
           </Paper>
         </Grid>

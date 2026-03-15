@@ -10,6 +10,125 @@ const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
+const ROLL_NUMBER_REGEX = /^\d{12}$/;
+
+const normalizeRollNumber = (value) => String(value || '').trim();
+
+const normalizeYearOfStudy = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 4) {
+    return NaN;
+  }
+  return parsed;
+};
+
+const getAdmissionPrefix = (rollNumber) => normalizeRollNumber(rollNumber).slice(0, 3);
+
+const restoreDeletedStudentRecord = async ({
+  existingUser,
+  username,
+  email,
+  password,
+  assignedMentorId,
+  yearOfStudy
+}) => {
+  existingUser.username = username;
+  existingUser.email = email;
+  existingUser.password = password;
+  existingUser.role = 'user';
+  existingUser.assignedMentor = assignedMentorId;
+  existingUser.isDeleted = false;
+  existingUser.hasLoggedIn = false;
+  existingUser.resetPasswordToken = undefined;
+  existingUser.resetPasswordExpiry = undefined;
+  existingUser.yearOfStudy = yearOfStudy;
+  existingUser.yearAssignmentMode = yearOfStudy ? 'manual' : 'auto';
+  await existingUser.save();
+
+  const existingProfile = await Profile.findOne({
+    $or: [
+      { userId: existingUser._id },
+      { regdNo: username },
+      { email }
+    ]
+  });
+
+  if (existingProfile) {
+    existingProfile.userId = existingUser._id;
+    existingProfile.regdNo = username;
+    existingProfile.email = email;
+    existingProfile.isDeleted = false;
+    await existingProfile.save();
+  }
+
+  return existingUser;
+};
+
+const permanentlyDeleteStudents = async (students) => {
+  if (!Array.isArray(students) || students.length === 0) {
+    return 0;
+  }
+
+  const userIds = students.map((student) => student._id);
+  const emails = students
+    .map((student) => String(student.email || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  await Promise.all([
+    User.deleteMany({ _id: { $in: userIds } }),
+    Profile.deleteMany({
+      $or: [
+        { userId: { $in: userIds } },
+        { email: { $in: emails } }
+      ]
+    }),
+    MentorGrading.deleteMany({ email: { $in: emails } }),
+    Marks.deleteMany({ email: { $in: emails } })
+  ]);
+
+  await syncYearOfStudyForAllStudents();
+  return userIds.length;
+};
+
+const syncYearOfStudyForAllStudents = async () => {
+  const students = await User.find({ role: 'user', isDeleted: { $ne: true } })
+    .select('_id username yearOfStudy yearAssignmentMode')
+    .lean();
+
+  const prefixes = [...new Set(
+    students
+      .map((s) => getAdmissionPrefix(s.username))
+      .filter((p) => /^\d{3}$/.test(p))
+  )].sort((a, b) => Number(b) - Number(a));
+
+  if (prefixes.length === 0) return;
+
+  const rankByPrefix = {};
+  prefixes.forEach((prefix, index) => {
+    rankByPrefix[prefix] = index + 1;
+  });
+
+  const bulkOps = students
+    .map((student) => {
+      if (student.yearAssignmentMode === 'manual') return null;
+      const prefix = getAdmissionPrefix(student.username);
+      const nextYear = rankByPrefix[prefix] || null;
+      if (!nextYear || student.yearOfStudy === nextYear) return null;
+      return {
+        updateOne: {
+          filter: { _id: student._id },
+          update: { $set: { yearOfStudy: nextYear } }
+        }
+      };
+    })
+    .filter(Boolean);
+
+  if (bulkOps.length > 0) {
+    await User.bulkWrite(bulkOps);
+  }
+};
+
 /**
  * @route GET /api/admin/users
  * @desc Get all users (Admin only) - optionally filter by role
@@ -58,73 +177,225 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res, next) => 
  */
 router.post('/users', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const { username, email } = req.body;
+    const { username, email, mentorId, yearOfStudy } = req.body;
+    const normalizedUsername = normalizeRollNumber(username);
+    const normalizedYearOfStudy = normalizeYearOfStudy(yearOfStudy);
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
+    if (!ROLL_NUMBER_REGEX.test(normalizedUsername)) {
+      return res.status(400).json({ error: 'Roll number must be a 12-digit value (example: 322103311001)' });
     }
+
+    if (Number.isNaN(normalizedYearOfStudy)) {
+      return res.status(400).json({ error: 'Year of study must be a value between 1 and 4' });
+    }
+
+    const normalizedEmail = (email && String(email).trim())
+      ? String(email).trim().toLowerCase()
+      : `${normalizedUsername.toLowerCase()}@gvpce.ac.in`;
+
+    if (!normalizedUsername) {
+      return res.status(400).json({ error: 'Username (roll number) is required' });
+    }
+
+    let assignedMentorId = req.user.id;
+    if (req.user.role === 'superadmin' && mentorId) {
+      const mentor = await User.findById(mentorId);
+      if (!mentor || mentor.role !== 'admin') {
+        return res.status(400).json({ error: 'Invalid mentor selected' });
+      }
+      assignedMentorId = mentorId;
+    }
+
+    const existingActiveUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
+      isDeleted: { $ne: true }
+    });
+    if (existingActiveUser) {
+      return res.status(400).json({ error: 'User with this email or roll number already exists' });
+    }
+
+    const existingDeletedUser = await User.findOne({
+      $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
+      isDeleted: true
+    });
 
     // Generate a random password
     const randomPassword = crypto.randomBytes(8).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
+    if (existingDeletedUser) {
+      const restoredUser = await restoreDeletedStudentRecord({
+        existingUser: existingDeletedUser,
+        username: normalizedUsername,
+        email: normalizedEmail,
+        password: hashedPassword,
+        assignedMentorId,
+        yearOfStudy: normalizedYearOfStudy
+      });
+
+      if (!normalizedYearOfStudy) {
+        await syncYearOfStudyForAllStudents();
+      }
+
+      return res.status(200).json({
+        message: 'Deleted student restored successfully. Use Send Details to email credentials manually.',
+        user: {
+          _id: restoredUser._id,
+          username: restoredUser.username,
+          email: restoredUser.email,
+          role: restoredUser.role,
+          yearOfStudy: restoredUser.yearOfStudy
+        }
+      });
+    }
+
     // Create new user
     const newUser = new User({
-        username,
-        email,
+        username: normalizedUsername,
+        email: normalizedEmail,
         password: hashedPassword,
         role: 'user', // Default role for added students
-        assignedMentor: req.user.id
+        assignedMentor: assignedMentorId,
+        yearOfStudy: normalizedYearOfStudy,
+        yearAssignmentMode: normalizedYearOfStudy ? 'manual' : 'auto'
       });
     await newUser.save();
 
-    // Send email with credentials (optional - don't fail if email fails)
-    try {
-      if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD
-          }
-        });
-
-        const mailOptions = {
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: 'Your Account Credentials',
-          html: `
-            <h1>Welcome to the Counseling Forms System</h1>
-            <p>Your account has been created by an administrator.</p>
-            <p><strong>Username:</strong> ${username}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Password:</strong> ${randomPassword}</p>
-            <p>Please log in and change your password after first login.</p>
-            <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/signup">Login Here</a></p>
-          `
-        };
-
-        await transporter.sendMail(mailOptions);
-      } else {
-        console.warn('Email credentials not configured. User created but email not sent.');
-      }
-    } catch (emailErr) {
-      console.error('Failed to send email:', emailErr);
-      // Don't fail the user creation if email fails
+    if (!normalizedYearOfStudy) {
+      await syncYearOfStudyForAllStudents();
     }
 
     res.status(201).json({
-      message: 'User created successfully and credentials sent via email',
+      message: 'User created successfully. Use Send Details to email credentials manually.',
       user: {
         _id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role
+        username: normalizedUsername,
+        email: normalizedEmail,
+        role: newUser.role,
+        yearOfStudy: newUser.yearOfStudy
       }
     });
   } catch (err) { next(err);
+  }
+});
+
+/**
+ * @route POST /api/admin/users/smart-create
+ * @desc Bulk create users by roll number range (Admin/Superadmin)
+ * @access Admin
+ */
+router.post('/users/smart-create', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const { startRollNumber, endRollNumber, emailDomain, mentorId, yearOfStudy } = req.body;
+    const normalizedYearOfStudy = normalizeYearOfStudy(yearOfStudy);
+
+    if (!startRollNumber || !endRollNumber) {
+      return res.status(400).json({ error: 'Start roll number and end roll number are required' });
+    }
+
+    if (Number.isNaN(normalizedYearOfStudy)) {
+      return res.status(400).json({ error: 'Year of study must be a value between 1 and 4' });
+    }
+
+    const start = normalizeRollNumber(startRollNumber);
+    const end = normalizeRollNumber(endRollNumber);
+
+    if (!ROLL_NUMBER_REGEX.test(start) || !ROLL_NUMBER_REGEX.test(end)) {
+      return res.status(400).json({ error: 'Both roll numbers must be 12-digit values (example: 322103311001)' });
+    }
+
+    const startMatch = start.match(/^(.*?)(\d+)$/);
+    const endMatch = end.match(/^(.*?)(\d+)$/);
+    if (!startMatch || !endMatch || startMatch[1] !== endMatch[1]) {
+      return res.status(400).json({ error: 'Invalid roll number range format' });
+    }
+
+    const prefix = startMatch[1];
+    const startNum = parseInt(startMatch[2], 10);
+    const endNum = parseInt(endMatch[2], 10);
+    const width = startMatch[2].length;
+
+    if (Number.isNaN(startNum) || Number.isNaN(endNum) || endNum < startNum) {
+      return res.status(400).json({ error: 'Invalid numeric roll number range' });
+    }
+
+    if ((endNum - startNum + 1) > 500) {
+      return res.status(400).json({ error: 'Please create at most 500 students per request' });
+    }
+
+    let assignedMentorId = req.user.id;
+    if (req.user.role === 'superadmin' && mentorId) {
+      const mentor = await User.findById(mentorId);
+      if (!mentor || mentor.role !== 'admin') {
+        return res.status(400).json({ error: 'Invalid mentor selected' });
+      }
+      assignedMentorId = mentorId;
+    }
+
+    const domain = (emailDomain && String(emailDomain).trim()) || 'gvpce.ac.in';
+    const created = [];
+    const skipped = [];
+
+    for (let n = startNum; n <= endNum; n++) {
+      const username = `${prefix}${String(n).padStart(width, '0')}`;
+      const email = `${username.toLowerCase()}@${domain}`;
+
+      const exists = await User.findOne({
+        $or: [{ email }, { username }],
+        isDeleted: { $ne: true }
+      });
+      if (exists) {
+        skipped.push({ username, email, reason: 'Already exists' });
+        continue;
+      }
+
+      const deletedUser = await User.findOne({
+        $or: [{ email }, { username }],
+        isDeleted: true
+      });
+
+      const randomPassword = crypto.randomBytes(8).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      if (deletedUser) {
+        const restoredUser = await restoreDeletedStudentRecord({
+          existingUser: deletedUser,
+          username,
+          email,
+          password: hashedPassword,
+          assignedMentorId,
+          yearOfStudy: normalizedYearOfStudy
+        });
+
+        created.push({ _id: restoredUser._id, username, email, restored: true });
+        continue;
+      }
+
+      const newUser = new User({
+        username,
+        email,
+        password: hashedPassword,
+        role: 'user',
+        assignedMentor: assignedMentorId,
+        yearOfStudy: normalizedYearOfStudy,
+        yearAssignmentMode: normalizedYearOfStudy ? 'manual' : 'auto'
+      });
+      await newUser.save();
+
+      created.push({ _id: newUser._id, username, email });
+    }
+
+    if (!normalizedYearOfStudy) {
+      await syncYearOfStudyForAllStudents();
+    }
+
+    res.status(201).json({
+      message: `Bulk create completed. Created ${created.length}, skipped ${skipped.length}. Use Send Details manually to email credentials.`,
+      created,
+      skipped
+    });
+  } catch (err) {
+    next(err);
   }
 });
 
@@ -173,29 +444,71 @@ router.patch('/users/:id/role', authMiddleware, adminMiddleware, async (req, res
 });
 
 /**
+ * @route POST /api/admin/users/bulk-delete
+ * @desc Bulk delete users (Admin only)
+ * @access Admin
+ */
+router.post('/users/bulk-delete', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const userIds = Array.isArray(req.body.userIds) ? req.body.userIds : [];
+    if (userIds.length === 0) {
+      return res.status(400).json({ error: 'At least one user id is required' });
+    }
+
+    const usersToDeleteQuery = {
+      _id: { $in: userIds },
+      role: 'user',
+      isDeleted: { $ne: true }
+    };
+
+    if (req.user.role === 'admin') {
+      usersToDeleteQuery.assignedMentor = req.user._id;
+    }
+
+    const usersToDelete = await User.find(usersToDeleteQuery).select('_id email');
+    const allowedUserIds = usersToDelete.map((u) => u._id);
+
+    if (allowedUserIds.length === 0) {
+      return res.status(404).json({ error: 'No matching active students found for deletion' });
+    }
+
+    await permanentlyDeleteStudents(usersToDelete);
+
+    res.status(200).json({
+      message: `Permanently deleted ${allowedUserIds.length} students successfully`,
+      deletedCount: allowedUserIds.length
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * @route DELETE /api/admin/users/:id
  * @desc Delete user (Admin only)
  * @access Admin
  */
 router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    // First find the user to get their email
-    const user = await User.findById(req.params.id);
+    const query = {
+      _id: req.params.id,
+      role: 'user',
+      isDeleted: { $ne: true }
+    };
+
+    if (req.user.role === 'admin') {
+      query.assignedMentor = req.user._id;
+    }
+
+    const user = await User.findOne(query).select('_id email');
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
-    // Delete the user
-    await User.findByIdAndUpdate(req.params.id, { isDeleted: true });
 
-    // Delete associated profile
-    await Profile.findOneAndUpdate({ userId: req.params.id }, { isDeleted: true });
-    
-    // Mentor grading/marks can be kept or also soft deleted if we add the flag to those, 
-    // for now we just keep the base records soft-deleted.
+    await permanentlyDeleteStudents([user]);
 
-    res.status(200).json({ message: 'User and associated data soft-deleted successfully' });
+    res.status(200).json({ message: 'User and associated data permanently deleted successfully' });
   } catch (err) { next(err);
   }
 });

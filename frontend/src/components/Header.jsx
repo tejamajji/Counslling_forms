@@ -185,7 +185,8 @@ const Header = () => {
     if (isAuthenticated) {
       const userRole = localStorage.getItem('userRole') || localStorage.getItem('role');
       if (userRole === 'superadmin') navigate('/superadmin/dashboard');
-        else navigate('/dashboard');
+      else if (userRole === 'admin') navigate('/admin');
+      else navigate('/dashboard');
     } else {
       navigate('/landingpage');
     }

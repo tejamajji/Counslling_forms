@@ -34,6 +34,16 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  yearOfStudy: {
+    type: Number,
+    min: 1,
+    default: null
+  },
+  yearAssignmentMode: {
+    type: String,
+    enum: ['auto', 'manual'],
+    default: 'auto'
+  },
   createdAt: {
     type: Date,
     default: Date.now
