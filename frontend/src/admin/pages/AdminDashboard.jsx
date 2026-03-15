@@ -21,7 +21,7 @@ const AdminDashboard = () => {
       
       try {
         const userResponse = await apiClient.get('/api/auth/user', config);
-        if (userResponse.data.role !== 'admin') {
+        if (userResponse.data.role !== 'admin' && userResponse.data.role !== 'superadmin') {
           navigate('/dashboard');
         }
       } catch (err) {
@@ -50,7 +50,7 @@ const AdminDashboard = () => {
             onClick={() => navigate('/admin/users')}
             sx={{ padding: '15px' }}
           >
-            Manage Users
+            Manage Students
           </Button>
           
           <Button 

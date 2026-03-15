@@ -3,7 +3,7 @@ const Marks = require('../models/Semester'); // Unified Marks model
 const router = express.Router();
 
 // Create or Update a Semester for a Student
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   const { email, semester, subjects } = req.body;
 
   try {
@@ -35,14 +35,25 @@ router.post('/', async (req, res) => {
       await newMarksRecord.save();
       return res.status(201).json({ message: 'Marks added successfully.' });
     }
-  } catch (err) {
-    console.error("Error saving semester data:", err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
+
+// Get All Semesters for an Email
+router.get('/all/:email', async (req, res, next) => {
+  const { email } = req.params;
+  try {
+    const marksRecord = await Marks.findOne({ email });
+    if (!marksRecord) {
+      return res.status(200).json({ semesters: [] }); // return empty gracefully
+    }
+    return res.status(200).json(marksRecord);
+  } catch (err) { next(err); }
+});
+
 // Get Marks for a Specific Semester
-router.get('/:email/:semester', async (req, res) => {
+router.get('/:email/:semester', async (req, res, next) => {
   const { email, semester } = req.params;
   
   try {
@@ -61,14 +72,12 @@ router.get('/:email/:semester', async (req, res) => {
     }
 
     return res.status(200).json(semesterDetails);
-  } catch (err) {
-    console.error("Error fetching semester details:", err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
 // Update Marks for a Specific Semester
-router.put('/:email/:semester', async (req, res) => {
+router.put('/:email/:semester', async (req, res, next) => {
   const { email, semester } = req.params;
   const { subjects } = req.body;
 
@@ -92,14 +101,12 @@ router.put('/:email/:semester', async (req, res) => {
     await marksRecord.save();
 
     return res.status(200).json({ message: 'Semester marks updated successfully.' });
-  } catch (err) {
-    console.error("Error updating semester marks:", err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
 // Update Marks for a Specific Subject in a Semester
-router.put('/:email/:semester/subject/:subjectName', async (req, res) => {
+router.put('/:email/:semester/subject/:subjectName', async (req, res, next) => {
   const { email, semester, subjectName } = req.params;
   const { mid1, mid2, ext } = req.body;
 
@@ -130,14 +137,12 @@ router.put('/:email/:semester/subject/:subjectName', async (req, res) => {
 
     await marksRecord.save();
     return res.status(200).json({ message: 'Subject marks updated successfully.' });
-  } catch (err) {
-    console.error("Error updating subject marks:", err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
 // Delete Marks for a Specific Semester
-router.delete('/:email/:semester', async (req, res) => {
+router.delete('/:email/:semester', async (req, res, next) => {
   const { email, semester } = req.params;
 
   try {
@@ -153,9 +158,7 @@ router.delete('/:email/:semester', async (req, res) => {
 
     await marksRecord.save();
     return res.status(200).json({ message: `Semester ${semester} marks deleted successfully.` });
-  } catch (err) {
-    console.error("Error deleting semester:", err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 

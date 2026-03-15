@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TextField, Button, Grid, Typography, Container, Box } from '@mui/material';
 
 const CounselingForm = () => {
-  const [formData, setFormData] = useState({
+  const initialState = {
     regNo: '',
     section: '',
     mobile: '',
@@ -36,17 +36,61 @@ const CounselingForm = () => {
     mentorSignature: '',
     placementDetails: '',
     entranceExams: '',
+  };
+  const [formData, setFormData] = useState(() => {
+    // 4. Browser refresh loses unsaved progress - Draft Retention
+    const savedDraft = sessionStorage.getItem('counselingFormDraft');
+    if (savedDraft) {
+      try {
+        return JSON.parse(savedDraft);
+      } catch (err) {
+        console.error("Error parsing form draft", err);
+      }
+    }
+    return initialState;
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    sessionStorage.setItem('counselingFormDraft', JSON.stringify(formData));
+  }, [formData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission logic here
-    console.log(formData);
+    if (isSubmitting) return; // Prevent double click
+    setIsSubmitting(true);
+    setSuccessMessage("");
+    
+    try {
+      // Basic formatting of date if needed to avoid parsing issues
+      const submitData = { ...formData };
+      if (submitData.dob) {
+        // Ensure consistent YYYY-MM-DD format on frontend to avoid MM/DD / DD/MM confusion
+        const dateObj = new Date(submitData.dob);
+        if (!isNaN(dateObj.getTime())) {
+          submitData.dob = dateObj.toISOString().split('T')[0];
+        }
+      }
+      
+      // Simulate/Send the API request
+      // await apiClient.post('/api/counseling', submitData);
+      console.log('Submitting to backend:', submitData);
+      
+      // Form state reset after success
+      setFormData(initialState);
+      sessionStorage.removeItem('counselingFormDraft');
+      setSuccessMessage("Form submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting form:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -360,11 +404,20 @@ const CounselingForm = () => {
                 fullWidth
                 required
                 onChange={handleChange}
+                value={formData.entranceExams}
               />
             </Grid>
           </Grid>
-          <Button type="submit" fullWidth variant="contained" color="primary" sx={{ mt: 3, mb: 2 }}>
-            Submit
+          {successMessage && <Typography color="success.main" sx={{ mt: 2, textAlign: 'center' }}>{successMessage}</Typography>}
+          <Button 
+            type="submit" 
+            fullWidth 
+            variant="contained" 
+            color="primary" 
+            sx={{ mt: 3, mb: 2 }}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit'}
           </Button>
         </Box>
       </Box>

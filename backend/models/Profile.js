@@ -1,43 +1,43 @@
 const mongoose = require("mongoose");
 
 const attendanceSchema = new mongoose.Schema({
-  month: { type: String, required: true },
+  month: { type: String, required: false },
   percentage: { type: Number, default: 0 } // Attendance stored as percentage
 });
 
 const semesterSchema = new mongoose.Schema({
-  semester: { type: String, required: true },
+  semester: { type: String, required: false },
   attendance: [attendanceSchema]
 });
 
 const profileSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true }, // Foreign key
-    regdNo: { type: String, required: true, unique: true }, // Registration Number (Primary key)
-    section: { type: String, required: true }, // Section
-    mobileNumber: { type: String, required: true }, // Mobile Number
-    name: { type: String, required: true }, // Name as per SSC Marks Memo
-    email: { type: String, required: true, unique: true }, // Email
-    admissionType: { type: String, enum: ["Convener", "Management","Category-B"], required: true }, // Convener or Management admission
-    caste: { type: String, required: true }, // Caste
-    rank: { type: String, required: true }, // EAMCET / ECET Rank
-    dob: { type: String, required: true }, // Date of Birth (dd/mmm/yyyy)
-    bloodGroup: { type: String, required: true }, // Blood Group
+    regdNo: { type: String, required: false, unique: true, sparse: true }, // Registration Number (Primary key)
+    section: { type: String, required: false }, // Section
+    mobileNumber: { type: String, required: false }, // Mobile Number
+    name: { type: String, required: false }, // Name as per SSC Marks Memo
+    email: { type: String, required: false, unique: true, sparse: true }, // Email
+    admissionType: { type: String, enum: ["Convener", "Management","Category-B"], required: false }, // Convener or Management admission
+    caste: { type: String, required: false }, // Caste
+    rank: { type: String, required: false }, // EAMCET / ECET Rank
+    dob: { type: String, required: false }, // Date of Birth (dd/mmm/yyyy)
+    bloodGroup: { type: String, required: false }, // Blood Group
     tenthMarks: {
-      obtained: { type: Number, required: true },
-      max: { type: Number, required: true },
-      percentage: { type: Number, required: true }
+      obtained: { type: Number, required: false },
+      max: { type: Number, required: false },
+      percentage: { type: Number, required: false }
     }, // 10th Marks (marks/max marks & percentage)
     interDiplomaMarks: {
-      obtained: { type: Number, required: true },
-      max: { type: Number, required: true },
-      percentage: { type: Number, required: true }
+      obtained: { type: Number, required: false },
+      max: { type: Number, required: false },
+      percentage: { type: Number, required: false }
     }, // Inter/Diploma Marks (marks/max marks & percentage)
     parentDetails: {
-      name: { type: String, required: true }, // Parent name as per SSC Memo
-      address: { type: String, required: true }, // Home address
-      occupation: { type: String, required: true }, // Occupation
-      contactNumber: { type: String, required: true }, // Parent contact number
+      name: { type: String, required: false }, // Parent name as per SSC Memo
+      address: { type: String, required: false }, // Home address
+      occupation: { type: String, required: false }, // Occupation
+      contactNumber: { type: String, required: false }, // Parent contact number
       email: { type: String } // Parent email (optional)
     },
     localGuardian: {
@@ -52,9 +52,10 @@ const profileSchema = new mongoose.Schema(
       technical: { type: [String] } // Technical Activities
     },
     profilePicture: { type: String, default: null }, // Profile Picture (default: null)
+    isDeleted: { type: Boolean, default: false },
     attendance: [
       {
-        semester: { type: String, required: true },
+        semester: { type: String, required: false },
         months: {
           type: Map,
           of: {
@@ -66,6 +67,10 @@ const profileSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+profileSchema.index({ section: 1 });
+profileSchema.index({ createdAt: 1 });
+profileSchema.index({ isDeleted: 1 });
 
 // Middleware to restrict attendance modification to admin users
 profileSchema.pre("save", function (next) {

@@ -9,7 +9,8 @@ const Header = () => {
   const isLandingPage = location.pathname === '/landingpage';
   const issignupPage = location.pathname === '/signup';
   const isAuthenticated = localStorage.getItem('authToken');
-  const [user, setUser] = useState({ name: '', email: '', profilePicture: '' });
+  const [user, setUser] = useState({ name: '', email: '', profilePicture: '', profileCompletion: 0 });
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const hideTranslationBar = () => {
     setTimeout(() => {
@@ -96,7 +97,7 @@ const Header = () => {
         setUser({
           name: response.data.username || 'User',
           email: response.data.email || 'Not Available',
-          profilePicture: response.data.profilePicture || '',
+          profilePicture: response.data.profilePicture || '', profileCompletion: response.data.profileCompletion || 0,
         });
       } catch (error) {
         console.error('Error fetching user details:', error);
@@ -160,8 +161,36 @@ const Header = () => {
   };
 
   const handleRegisterLogin = () => navigate('/signup');
-  const handleProfileClick = () => navigate('/profile');
-  const handleLogoClick = () => navigate('/landingpage');
+  const handleProfileClick = () => { setIsDropdownOpen(!isDropdownOpen); };
+  
+  const handleDropdownProfile = () => {
+    navigate('/profile');
+    setIsDropdownOpen(false);
+  };
+
+  const handleDropdownDashboard = () => {
+    handleLogoClick(); 
+    setIsDropdownOpen(false);
+  };
+
+  const handleDropdownLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('role');
+    setIsDropdownOpen(false);
+    navigate('/landingpage');
+    window.location.reload();
+  };
+  const handleLogoClick = () => {
+    if (isAuthenticated) {
+      const userRole = localStorage.getItem('userRole') || localStorage.getItem('role');
+      if (userRole === 'superadmin') navigate('/superadmin/dashboard');
+      else if (userRole === 'admin') navigate('/admin');
+      else navigate('/dashboard');
+    } else {
+      navigate('/landingpage');
+    }
+  };
 
   const styles = {
     header: {
@@ -199,7 +228,7 @@ const Header = () => {
       minWidth: '120px',
       height: '40px',
     },
-    profileContainer: {
+    profileContainer: { position: 'relative',
       cursor: 'pointer',
     },
     profileImage: {
@@ -237,17 +266,74 @@ const Header = () => {
       {/* Register/Login or Profile */}
       {issignupPage ? (
         <img src={gvplog} alt="GVP Logo" style={styles.logoImage} />
-      ) : isLandingPage || !isAuthenticated ? (
+      ) : !isAuthenticated ? (
         <button onClick={handleRegisterLogin} style={styles.button}>
           Register / Login
         </button>
       ) : (
-        <div style={styles.profileContainer} onClick={handleProfileClick}>
-          <img
-            src={user.profilePicture || 'default-profile.png'}
-            alt="Profile"
-            style={styles.profileImage}
-          />
+        <div style={styles.profileContainer}>      
+          
+          <div style={{ position: 'relative', display: 'inline-block', width: '40px', height: '40px', cursor: 'pointer' }} onClick={handleProfileClick}>
+            <div style={{
+              position: 'absolute', top: '-4px', left: '-4px', right: '-4px', bottom: '-4px', borderRadius: '50%',
+              background: `conic-gradient(#4caf50 ${Math.min(user.profileCompletion || 0, 100)}%, transparent 0)`, zIndex: 0
+            }}></div>
+            <div style={{ position: 'relative', zIndex: 1, backgroundColor: 'white', width: '100%', height: '100%', borderRadius: '50%', padding: '2px' }}>
+              <img
+                src={user.profilePicture || 'default-profile.png'}
+                alt="Profile"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+              />
+            </div>
+          </div>
+
+          {isDropdownOpen && (
+            <div style={{
+              position: 'absolute',
+              top: '50px',
+              right: 0,
+              backgroundColor: 'white',
+              border: '1px solid #ccc',
+              borderRadius: '5px',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+              minWidth: '150px',
+              zIndex: 1001,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}>
+              <button 
+                onClick={handleDropdownProfile}
+                style={{ padding: '10px 15px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', width: '100%' }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f4f4f4'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                My Profile
+              </button>
+              <div style={{ padding: '10px 15px', color: '#666', fontSize: '0.85rem', borderBottom: '1px solid #eee' }}>
+                Profile Completion: {user.profileCompletion}%
+                <div style={{ height: '5px', background: '#e0e0e0', borderRadius: '5px', marginTop: '5px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#4caf50', width: `${user.profileCompletion}%` }}></div>
+                </div>
+              </div>
+              <button 
+                onClick={handleDropdownDashboard}
+                style={{ padding: '10px 15px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', width: '100%' }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f4f4f4'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                Dashboard
+              </button>
+              <button 
+                onClick={handleDropdownLogout}
+                style={{ padding: '10px 15px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', color: '#dc3545', width: '100%' }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f4f4f4'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

@@ -4,12 +4,11 @@ import apiClient from '../apiClient';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState({ 
+  const [user, setUser] = useState({  
     name: '', 
     email: '', 
     profilePicture: '',
-    role: ''
-  });
+    role: '', profileCompletion: 0 });
 
   useEffect(() => {
     const fetchUserDetails = async () => {
@@ -33,8 +32,7 @@ const Dashboard = () => {
           name: response.data.username || 'User',
           email: response.data.email || 'Not Available',
           profilePicture: response.data.profilePicture || '',
-          role: response.data.role || 'user'
-        });
+          role: response.data.role || 'user', profileCompletion: response.data.profileCompletion || 0 });
       } catch (error) {
         console.error('Error fetching user details:', error);
         if (error.response?.status === 401) {
@@ -46,11 +44,15 @@ const Dashboard = () => {
     fetchUserDetails();
   }, [navigate]); // Removed 'user' to prevent infinite loop
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userRole');
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/api/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    localStorage.clear();
+    // Also clear any sessionStorage if used
+    sessionStorage.clear();
     navigate('/signup');
   };
 
@@ -69,9 +71,9 @@ const Dashboard = () => {
         <h2 style={styles.bigText}>Hello, {user.name}!</h2>
         <p style={styles.smallText}>{user.email}</p>
         <div style={styles.stats}>
-          <p><strong>⭐ Projects:</strong> 12</p>
-          <p><strong>🎯 Achievements:</strong> 5</p>
-          <p><strong>📅 Joined:</strong> Jan 2024</p>
+          <p><strong>🎓 Role:</strong> {user.role === 'user' ? 'Student' : user.role === 'admin' ? 'Admin' : user.role === 'superadmin' ? 'Super Admin' : user.role}</p>
+          <p><strong>📊 Profile Score:</strong> {user.profileCompletion}% Complete</p>
+          <p><strong>🛡️ Account:</strong> Active</p>
         </div>
       </div>
 
@@ -98,6 +100,16 @@ const Dashboard = () => {
               boxShadow: '0 4px 10px rgba(156, 39, 176, 0.3)',
             }}>
               Admin Panel
+            </button>
+          )}
+
+          {user.role === 'superadmin' && (
+            <button onClick={() => navigate('/superadmin/dashboard')} style={{
+              ...styles.button,
+              backgroundColor: '#f44336',
+              boxShadow: '0 4px 10px rgba(244, 67, 54, 0.3)',
+            }}>
+              Super Admin Panel
             </button>
           )}
         </div>

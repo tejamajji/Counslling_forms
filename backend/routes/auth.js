@@ -9,7 +9,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
 // Signup
-router.post('/signup', async (req, res) => {
+router.post('/signup', async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
@@ -36,14 +36,12 @@ router.post('/signup', async (req, res) => {
       email: newUser.email,
       role: newUser.role
     });
-  } catch (err) {
-    console.error('Error in /signup:', err);
-    res.status(500).json({ error: 'Server error', details: err.message });
+  } catch (err) { next(err);
   }
 });
 
 // Signin
-router.post('/signin', async (req, res) => {
+router.post('/signin', async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -53,7 +51,12 @@ router.post('/signin', async (req, res) => {
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+      if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+      if (!user.hasLoggedIn) {
+        user.hasLoggedIn = true;
+        await user.save();
+      }
 
     // Generate token with role
     const token = jwt.sign(
@@ -70,13 +73,12 @@ router.post('/signin', async (req, res) => {
       email: user.email,
       role: user.role
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
 // Fetch user details (email and username)
-router.get('/user', authMiddleware, async (req, res) => {
+router.get('/user', authMiddleware, async (req, res, next) => {
   try {
     // Fetch user details
     const user = await User.findById(req.user.id).select('-password');
@@ -86,6 +88,19 @@ router.get('/user', authMiddleware, async (req, res) => {
     });
 
     const profile = await Profile.findOne({ userId: req.user.id });
+
+      let profileCompletion = 0;
+      if (profile) {
+        const requiredFields = [
+          profile.name, profile.regdNo, profile.section, profile.mobileNumber, profile.email,
+          profile.admissionType, profile.caste, profile.rank, profile.dob, profile.bloodGroup,
+          profile.tenthMarks?.percentage, profile.interDiplomaMarks?.percentage,
+          profile.parentDetails?.name, profile.parentDetails?.address, profile.parentDetails?.occupation, profile.parentDetails?.contactNumber
+        ];
+        const answered = requiredFields.filter(f => f !== undefined && f !== null && String(f).trim() !== '').length;
+        profileCompletion = Math.round((answered / requiredFields.length) * 100);
+      }
+
     
     res.status(200).json({
       username: user.username,
@@ -93,10 +108,10 @@ router.get('/user', authMiddleware, async (req, res) => {
       role: user.role,
       hasProfile: !!profile,
       profilePicture: profile?.profilePicture || null,
+      profileCompletion: profileCompletion || 0,
       isNewUser: user.isNewUser || false  // Include new user status
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
@@ -106,7 +121,7 @@ router.post('/logout', (req, res) => {
 });
 
 // Request password reset (generate token and send email)
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body;
     
@@ -155,14 +170,12 @@ router.post('/forgot-password', async (req, res) => {
     await transporter.sendMail(mailOptions);
     
     res.status(200).json({ message: 'Password reset email sent' });
-  } catch (err) {
-    console.error('Password reset error:', err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
 // Reset password with token
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password/:token', async (req, res, next) => {
   try {
     const { password } = req.body;
     const { token } = req.params;
@@ -188,9 +201,7 @@ router.post('/reset-password/:token', async (req, res) => {
     await user.save();
     
     res.status(200).json({ message: 'Password updated successfully' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
