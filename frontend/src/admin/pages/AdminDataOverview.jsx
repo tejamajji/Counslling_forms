@@ -14,6 +14,7 @@ const AdminDataOverview = () => {
   const [mentorGradings, setMentorGradings] = useState([]);
   const [marks, setMarks] = useState([]);
   const [tabValue, setTabValue] = useState(0);
+  const [activeYear, setActiveYear] = useState('325'); // default to 1st year
   const navigate = useNavigate();
 
   // Fetch data on component mount
@@ -33,7 +34,7 @@ const AdminDataOverview = () => {
       try {
         // Check if user is admin
         const userResponse = await apiClient.get('/api/auth/user', config);
-        if (userResponse.data.role !== 'admin') {
+        if (userResponse.data.role !== 'admin' && userResponse.data.role !== 'superadmin') {
           setError('You do not have admin privileges');
           navigate('/dashboard');
           return;
@@ -68,6 +69,10 @@ const AdminDataOverview = () => {
     setTabValue(newValue);
   };
 
+  const filteredProfiles = profiles.filter(p => p.regdNo?.startsWith(activeYear) || p.email?.startsWith(activeYear));
+  const filteredGradings = mentorGradings.filter(g => g.email?.startsWith(activeYear));
+  const filteredMarks = marks.filter(m => m.email?.startsWith(activeYear));
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -88,13 +93,20 @@ const AdminDataOverview = () => {
         </Alert>
       )}
 
-      <Box sx={{ marginBottom: '20px' }}>
+      <Box sx={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
         <Button variant="contained" onClick={() => navigate('/admin')} sx={{ marginRight: '10px' }}>
           Back to Admin Dashboard
         </Button>
         <Button variant="outlined" onClick={() => navigate('/admin/users')}>
           Manage Users
         </Button>
+      </Box>
+
+      <Box sx={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+        <Button variant={activeYear === '325' ? 'contained' : 'outlined'} onClick={() => setActiveYear('325')}>1st Year</Button>
+        <Button variant={activeYear === '324' ? 'contained' : 'outlined'} onClick={() => setActiveYear('324')}>2nd Year</Button>
+        <Button variant={activeYear === '323' ? 'contained' : 'outlined'} onClick={() => setActiveYear('323')}>3rd Year</Button>
+        <Button variant={activeYear === '322' ? 'contained' : 'outlined'} onClick={() => setActiveYear('322')}>4th Year</Button>
       </Box>
 
       <Paper sx={{ width: '100%' }}>
@@ -118,7 +130,7 @@ const AdminDataOverview = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {profiles.map((profile) => (
+                {filteredProfiles.map((profile) => (
                   <TableRow key={profile._id}>
                     <TableCell>{profile.name}</TableCell>
                     <TableCell>{profile.regdNo}</TableCell>
@@ -153,7 +165,7 @@ const AdminDataOverview = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {mentorGradings.map((grading) => (
+                {filteredGradings.map((grading) => (
                   <TableRow key={grading._id}>
                     <TableCell>{grading.email}</TableCell>
                     <TableCell>
@@ -194,7 +206,7 @@ const AdminDataOverview = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {marks.map((mark) => (
+                {filteredMarks.map((mark) => (
                   <TableRow key={mark._id}>
                     <TableCell>{mark.email}</TableCell>
                     <TableCell>{mark.semesters.length}</TableCell>

@@ -25,13 +25,16 @@ const authMiddleware = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token has expired' });
+    }
     return res.status(401).json({ error: 'Token is not valid' });
   }
 };
 
 // Admin middleware - checks if authenticated user is an admin
 const adminMiddleware = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'superadmin')) {
     next();
   } else {
     return res.status(403).json({ error: 'Admin access required' });
@@ -40,7 +43,7 @@ const adminMiddleware = (req, res, next) => {
 
 // Mentor middleware - checks if authenticated user is a mentor
 const mentorMiddleware = (req, res, next) => {
-  if (req.user && (req.user.role === 'mentor' || req.user.role === 'admin')) {
+  if (req.user && (req.user.role === 'mentor' || req.user.role === 'admin' || req.user.role === 'superadmin')) {
     next();
   } else {
     return res.status(403).json({ error: 'Mentor access required' });

@@ -5,45 +5,54 @@ import "./css/Profile.css"; // We'll create this CSS file separately
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState({
+  
+  const initialProfileState = {
     name: "",
     regdNo: "",
     section: "",
     mobileNumber: "",
     email: "",
-    admissionType: "Convener", // default value
+    admissionType: "Convener",
     caste: "",
     rank: "",
     dob: "",
     bloodGroup: "",
     tenthMarks: { obtained: "", max: "", percentage: "" },
     interDiplomaMarks: { obtained: "", max: "", percentage: "" },
-    parentDetails: {
-      name: "",
-      address: "",
-      occupation: "",
-      contactNumber: "",
-      email: "",
-    },
-    localGuardian: {
-      name: "",
-      address: "",
-      contactNumber: "",
-    },
+    parentDetails: { name: "", address: "", occupation: "", contactNumber: "", email: "" },
+    localGuardian: { name: "", address: "", contactNumber: "" },
     hobbies: [],
-    participation: {
-      gamesAndActivities: [],
-      literary: [],
-      technical: [],
-    },
+    participation: { gamesAndActivities: [], literary: [], technical: [] },
     profilePicture: "",
+  };
+
+  const [formData, setFormData] = useState(() => {
+    const savedDraft = sessionStorage.getItem('profileFormDraft');
+    if (savedDraft) {
+      try {
+        return JSON.parse(savedDraft);
+      } catch (e) {
+        console.error("Failed to parse draft", e);
+      }
+    }
+    return initialProfileState;
   });
-  const [isLoading, setIsLoading] = useState(true);
+
+const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isNewUser, setIsNewUser] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isEditing || isNewUser) {
+      sessionStorage.setItem("profileFormDraft", JSON.stringify(formData));
+    }
+  }, [formData, isEditing, isNewUser]);
+
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -109,12 +118,18 @@ const Profile = () => {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return; // Prevent double click
+    
     const token = localStorage.getItem("authToken");
     if (!token) {
       navigate("/signup");
       return;
     }
   
+    setIsSubmitting(true);
+    setError("");
+    setSuccessMessage("");
+
     try {
       // Validate required fields
       if (!formData.name || !formData.regdNo || !formData.email) {
@@ -129,6 +144,14 @@ const Profile = () => {
         regdNo: isNewUser ? formData.regdNo : undefined,
         email: isNewUser ? formData.email : undefined
       };
+      
+      // Fix Date/time parsing mismatch (DD/MM vs MM/DD) 
+      if (dataToSend.dob) {
+        const dObj = new Date(dataToSend.dob);
+        if (!isNaN(dObj.getTime())) {
+          dataToSend.dob = dObj.toISOString().split('T')[0];
+        }
+      }
   
       let response;
       if (isNewUser) {
@@ -152,6 +175,8 @@ const Profile = () => {
       setIsNewUser(false);
       setIsEditing(false);
       setError("");
+      sessionStorage.removeItem('profileFormDraft');
+      setSuccessMessage("Profile saved successfully!");
     } catch (error) {
       console.error("Save error:", error);
       // Better error message handling
@@ -168,6 +193,8 @@ const Profile = () => {
           .join(", ");
         setError(`Validation errors: ${validationErrors}`);
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -523,6 +550,7 @@ const Profile = () => {
       </div>
       
       {error && <div className="error-message">{error}</div>}
+      {successMessage && <div className="success-message" style={{ padding: '10px', backgroundColor: '#d4edda', color: '#155724', borderRadius: '5px', marginBottom: '15px' }}>{successMessage}</div>}
       
       <div className="profile-content">
         <div className="profile-sidebar">
@@ -575,8 +603,9 @@ const Profile = () => {
                 <button 
                   className="btn btn-primary"
                   onClick={handleSubmit}
+                  disabled={isSubmitting}
                 >
-                  Save Profile
+                  {isSubmitting ? "Saving..." : "Save Profile"}
                 </button>
                 <button 
                   className="btn btn-outline"

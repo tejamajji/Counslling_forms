@@ -12,10 +12,12 @@ const AdminUserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
+  const [mentorGradings, setMentorGradings] = useState([]);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [addLoading, setAddLoading] = useState(false);
+  const [activeYear, setActiveYear] = useState('325'); // Default 1st year
   const navigate = useNavigate();
 
   // Fetch users data on component mount
@@ -35,15 +37,19 @@ const AdminUserManagement = () => {
       try {
         // Check if user is admin
         const userResponse = await apiClient.get('/api/auth/user', config);
-        if (userResponse.data.role !== 'admin') {
+        if (userResponse.data.role !== 'admin' && userResponse.data.role !== 'superadmin') {
           setError('You do not have admin privileges');
           navigate('/dashboard');
           return;
         }
 
         // Fetch users with role "user" only
-        const usersRes = await apiClient.get('/api/admin/users?role=user', config);
+        const [usersRes, mentorGradingsRes] = await Promise.all([
+          apiClient.get('/api/admin/users?role=user', config),
+          apiClient.get('/api/admin/mentorgradings', config)
+        ]);
         setUsers(usersRes.data);
+        setMentorGradings(mentorGradingsRes.data);
       } catch (err) {
         console.error('Error fetching users data:', err);
         setError('Failed to fetch data. Please try again.');
@@ -122,6 +128,8 @@ const AdminUserManagement = () => {
     }
   };
 
+  const filteredUsers = users.filter(u => u.username?.startsWith(activeYear) || u.email?.startsWith(activeYear));
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -133,7 +141,7 @@ const AdminUserManagement = () => {
   return (
     <Box sx={{ padding: '20px', maxWidth: '1200px', margin: 'auto' }}>
       <Typography variant="h4" align="center" gutterBottom>
-        User Management
+        Manage Students
       </Typography>
 
       {error && (
@@ -154,6 +162,13 @@ const AdminUserManagement = () => {
         </Button>
       </Box>
 
+      <Box sx={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+        <Button variant={activeYear === '325' ? 'contained' : 'outlined'} onClick={() => setActiveYear('325')}>1st Year</Button>
+        <Button variant={activeYear === '324' ? 'contained' : 'outlined'} onClick={() => setActiveYear('324')}>2nd Year</Button>
+        <Button variant={activeYear === '323' ? 'contained' : 'outlined'} onClick={() => setActiveYear('323')}>3rd Year</Button>
+        <Button variant={activeYear === '322' ? 'contained' : 'outlined'} onClick={() => setActiveYear('322')}>4th Year</Button>
+      </Box>
+
       <Paper sx={{ width: '100%' }}>
         <TableContainer component={Paper}>
           <Table>
@@ -161,27 +176,76 @@ const AdminUserManagement = () => {
               <TableRow>
                 <TableCell><b>Username</b></TableCell>
                 <TableCell><b>Email</b></TableCell>
-                <TableCell><b>Role</b></TableCell>
+                <TableCell><b>Profile Progress</b></TableCell>
                 <TableCell><b>Actions</b></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => {
+                const userGrading = mentorGradings.find(g => g.email === user.email);
+                const isGraded = userGrading && userGrading.grading && userGrading.grading.overallGrading && userGrading.grading.overallGrading.length > 0;
+                
+                return (
                 <TableRow key={user._id}>
                   <TableCell>{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
                   <TableCell>
+                    {user.profileCompletion !== undefined ? `${user.profileCompletion}%` : '0%'}
+                  </TableCell>
+                  <TableCell>
+                                          {!user.hasLoggedIn && (
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          size="small"
+                          sx={{ marginRight: '10px' }}
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('authToken');
+                              await apiClient.post(`/api/admin/send-details/${user._id}`, {}, {
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              alert('Login details and activation link sent to ' + user.email);
+                            } catch (err) {
+                              alert('Failed to send details');
+                            }
+                          }}
+                        >
+                          Send Details
+                        </Button>
+                      )}
+                      {user.profileCompletion < 100 && (
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        size="small"
+                        sx={{ marginRight: '10px' }}
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('authToken');
+                            await apiClient.post(`/api/admin/notify-profile/${user._id}`, {}, {
+                              headers: { Authorization: `Bearer ${token}` }
+                            });
+                            alert('Notification sent to ' + user.email);
+                          } catch (err) {
+                            alert('Failed to send notification');
+                          }
+                        }}
+                      >
+                        Notify
+                      </Button>
+                    )}
                     <Button
                       variant="outlined"
                       color="error"
+                      size="small"
                       onClick={() => handleDeleteUser(user._id)}
                     >
                       Delete
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </TableContainer>

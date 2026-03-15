@@ -4,6 +4,7 @@ import {
   Box, Typography, TextField, Button, Alert, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Rating
 } from "@mui/material";
 import { useParams, useNavigate } from "react-router-dom";
+import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 
 const MentorGrading = () => {
   const { email } = useParams(); // Get the student's email from the URL
@@ -42,21 +43,48 @@ const MentorGrading = () => {
   const [semester, setSemester] = useState(1); // Current semester (1-indexed)
   const [isMentor, setIsMentor] = useState(false); // Check if the user is a mentor
   const [isSaved, setIsSaved] = useState(false); // Track if the current semester is saved
-
+  
+  const [assignedStudents, setAssignedStudents] = useState([]);
+  const [activeYear, setActiveYear] = useState('325');
+  const [selectedStudentEmail, setSelectedStudentEmail] = useState('');
+  const [currentUserRole, setCurrentUserRole] = useState('user');
   // Fetch mentor grading data for the student
   useEffect(() => {
     const fetchMentorGrading = async () => {
       try {
-        const response = await apiClient.get(`/api/mentorgrading/${email}`);
-        if (response.status === 200) {
-          setMentorGrading(response.data);
-          setIsSaved(response.data.grading.generalDiscipline.length >= semester); // Check if the current semester is saved
-        } else {
-          throw new Error("Failed to fetch mentor grading data");
+        let targetEmail = email;
+        const userRole = localStorage.getItem("userRole") || localStorage.getItem("role");
+        const isAdmin = userRole === "mentor" || userRole === "admin" || userRole === "superadmin";
+
+        if (!targetEmail) {
+          if (isAdmin) {
+             // Admin hasn't selected a student yet. Don't fetch grading.
+             setLoading(false);
+             return;
+          }
+          // fetch current user info to get email
+          const token = localStorage.getItem('authToken');
+          if(token) {
+              const res = await apiClient.get('/api/auth/user', { headers: { Authorization: `Bearer ${token}` }});
+              targetEmail = res.data.email;
+              setMentorGrading(prev => ({...prev, email: targetEmail}));        
+          }
+        }
+        if(!targetEmail) { throw new Error("No student email found"); }
+
+        const response = await apiClient.get(`/api/mentorgrading/${targetEmail}`);
+        if (response.status === 200 && response.data && response.data.grading) {
+          setMentorGrading({
+              ...response.data,
+              email: targetEmail
+          });
+          setIsSaved(response.data.grading.generalDiscipline.length >= semester);
         }
       } catch (err) {
-        console.error("Error fetching mentor grading data:", err);
-        setError("Failed to fetch mentor grading data");
+        if (err.response && err.response.status === 404) {
+             // Not found means no grade yet, keep defaults instead of failing! 
+             setIsSaved(false);
+        }
       } finally {
         setLoading(false);
       }
@@ -68,14 +96,27 @@ const MentorGrading = () => {
   // Check if the user is a mentor (replace this with your actual mentor check logic)
   useEffect(() => {
     const checkMentor = async () => {
-      const userRole = localStorage.getItem("userRole"); // Example: Get user role from localStorage
-      setIsMentor(userRole === "mentor");
+      const userRole = localStorage.getItem("userRole") || localStorage.getItem("role"); 
+      setCurrentUserRole(userRole);
+      const mentorStatus = (userRole === "mentor" || userRole === "admin" || userRole === "superadmin");
+      setIsMentor(mentorStatus);
+      
+      if (mentorStatus && !email) {
+          try {
+              const token = localStorage.getItem('authToken');
+              const res = await apiClient.get('/api/admin/users?role=user', {
+                  headers: { Authorization: `Bearer ${token}` }
+              });
+              setAssignedStudents(res.data);
+          } catch(err) {
+              console.error("Could not fetch assigned students", err);
+          }
+      }
     };
-
     checkMentor();
-  }, []);
+  }, [email]);
 
-  // Handle changes in grading fields (only for mentors)
+  // Handle changes in grading (only for mentors)
   const handleGradingChange = (field, value) => {
     if (!isMentor) return; // Only mentors can edit
     setMentorGrading((prev) => ({
@@ -147,17 +188,26 @@ const MentorGrading = () => {
   // Save mentor grading data (only for mentors)
   const handleSave = async () => {
     try {
-      const response = await apiClient.post(`/api/mentorgrading/${email}`, mentorGrading);
+      const response = await apiClient.post(`/api/mentorgrading/${mentorGrading.email}`, mentorGrading);
       if (response.status === 200 || response.status === 201) {
         setError("");
         setIsSaved(true); // Mark the current semester as saved
+        // Update local __v version
+        if (response.data.__v !== undefined) {
+          setMentorGrading(prev => ({ ...prev, __v: response.data.__v }));
+        }
         alert("Grading data saved successfully!");
       } else {
         throw new Error("Failed to save grading data");
       }
     } catch (err) {
-      console.error("Error saving mentor grading data:", err);
-      setError("Failed to save grading data");
+      if (err.response && err.response.status === 409) {
+        alert("Conflict detected: Another counselor modified this record. Please refresh the page.");
+        setError("Conflict detected: Another user modified this data. Please refresh.");
+      } else {
+        console.error("Error saving mentor grading data:", err);
+        setError("Failed to save grading data");
+      }
     }
   };
 
@@ -193,10 +243,48 @@ const MentorGrading = () => {
     );
   }
 
+  if (isMentor && !email) {
+    const filteredStudents = assignedStudents.filter(s => s.username && s.username.startsWith(activeYear));
+    return (
+      <Box sx={{ padding: "20px", maxWidth: "600px", margin: "auto" }}>
+        <Button variant="outlined" onClick={handleBackToDashboard} sx={{ mb: 2 }}>
+          Back to Dashboard
+        </Button>
+        <Typography variant="h5" gutterBottom>Select Student to Grade</Typography>
+        <Paper sx={{ p: 4, mt: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+            <Button variant={activeYear === '325' ? 'contained' : 'outlined'} onClick={() => setActiveYear('325')}>1st Year</Button>
+            <Button variant={activeYear === '324' ? 'contained' : 'outlined'} onClick={() => setActiveYear('324')}>2nd Year</Button>
+            <Button variant={activeYear === '323' ? 'contained' : 'outlined'} onClick={() => setActiveYear('323')}>3rd Year</Button>
+            <Button variant={activeYear === '322' ? 'contained' : 'outlined'} onClick={() => setActiveYear('322')}>4th Year</Button>
+          </Box>
+          <FormControl fullWidth>
+            <InputLabel>Select Student</InputLabel>
+            <Select
+              value=""
+              label="Select Student"
+              onChange={(e) => navigate(`/mentorgrade/${e.target.value}`)}
+            >
+              <MenuItem value="" disabled>Select a student</MenuItem>
+              {filteredStudents.map(student => (
+                <MenuItem key={student._id || student.email} value={student.email}>
+                  {student.username} - {student.email}
+                </MenuItem>
+              ))}
+              {filteredStudents.length === 0 && (
+                <MenuItem disabled>No students found for this year.</MenuItem>
+              )}
+            </Select>
+          </FormControl>
+        </Paper>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ padding: "20px", maxWidth: "900px", margin: "auto" }}>
       <Typography variant="h4" align="center" gutterBottom>
-        Mentor Grading for {email}
+        Mentor Grading for {email || mentorGrading.email}
       </Typography>
 
       {error && (

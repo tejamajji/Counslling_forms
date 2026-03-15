@@ -4,7 +4,7 @@ const MentorGrading = require('../models/MentorGradingSchema');
 const router = express.Router();
 
 // POST: Create or update Mentor Grading
-router.post('/:email', async (req, res) => {
+router.post('/:email', async (req, res, next) => {
   try {
     const { email } = req.params;
     const gradingData = req.body;
@@ -36,13 +36,12 @@ router.post('/:email', async (req, res) => {
       await mentorGrading.save();
       return res.status(201).json(mentorGrading);
     }
-  } catch (error) {
-    return res.status(500).json({ message: 'Error in saving grading data', error });
+  } catch (err) { next(err);
   }
 });
 
 // GET: Get Mentor Grading for a specific student
-router.get('/:email', async (req, res) => {
+router.get('/:email', async (req, res, next) => {
   try {
     const { email } = req.params;
     const mentorGrading = await MentorGrading.findOne({ email });
@@ -52,13 +51,12 @@ router.get('/:email', async (req, res) => {
     }
 
     return res.status(200).json(mentorGrading);
-  } catch (error) {
-    return res.status(500).json({ message: 'Error in fetching grading data', error });
+  } catch (err) { next(err);
   }
 });
 
 // PUT: Update specific grading details for a student
-router.put('/:email/:semester/:subject', async (req, res) => {
+router.put('/:email/:semester/:subject', async (req, res, next) => {
     try {
       const { email, semester, subject } = req.params;
       const updatedGrades = req.body.grading;  // Assuming the grades come inside a 'grading' field
@@ -91,13 +89,12 @@ router.put('/:email/:semester/:subject', async (req, res) => {
   
       await mentorGrading.save();
       return res.status(200).json(mentorGrading);
-    } catch (error) {
-      return res.status(500).json({ message: 'Error updating grading data', error });
+    } catch (err) { next(err);
     }
   });
   
 // DELETE: Delete grading data for a specific student
-router.delete('/:email', async (req, res) => {
+router.delete('/:email', async (req, res, next) => {
   try {
     const { email } = req.params;
     const mentorGrading = await MentorGrading.findOneAndDelete({ email });
@@ -107,8 +104,7 @@ router.delete('/:email', async (req, res) => {
     }
 
     return res.status(200).json({ message: 'Grading data deleted successfully' });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error in deleting grading data', error });
+  } catch (err) { next(err);
   }
 });
 

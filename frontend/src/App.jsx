@@ -14,12 +14,14 @@ import AdminUserManagement from './admin/pages/AdminUserManagement';
 import AdminDataOverview from './admin/pages/AdminDataOverview';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import ActivateAccount from './pages/ActivateAccount';
 import SuperAdminDashboard from './admin/components/SuperAdminDashboard';
 import ManageAdmins from './admin/components/ManageAdmins';
 import CreateAdmin from './admin/components/CreateAdmin';
 import StudentsList from './admin/components/StudentsList';
 import StudentProfile from './admin/components/StudentProfile';
 import OverallReports from './admin/components/OverallReports';
+import MentorAllocation from './admin/components/MentorAllocation';
 
 
 // Protected Route Component
@@ -31,8 +33,15 @@ const ProtectedRoute = ({ element }) => {
 // Admin Protected Route Component
 const AdminRoute = ({ element }) => {
   const isAuthenticated = localStorage.getItem('authToken');
-  const userRole = localStorage.getItem('userRole');
-  return isAuthenticated && userRole === 'admin' ? element : <Navigate to="/dashboard" />;
+  const userRole = localStorage.getItem('userRole') || localStorage.getItem('role');
+  return isAuthenticated && (userRole === 'admin' || userRole === 'superadmin') ? element : <Navigate to="/dashboard" />;
+};
+
+// SuperAdmin Protected Route Component
+const SuperAdminRoute = ({ element }) => {
+  const isAuthenticated = localStorage.getItem('authToken');
+  const userRole = localStorage.getItem('userRole') || localStorage.getItem('role');
+  return isAuthenticated && userRole === 'superadmin' ? element : <Navigate to="/dashboard" />;
 };
 
 const App = () => {
@@ -47,6 +56,7 @@ const App = () => {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/activate-account/:token" element={<ActivateAccount />} />
 
           {/* Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
@@ -63,12 +73,14 @@ const App = () => {
           <Route path="/admin/users" element={<AdminRoute element={<AdminUserManagement />} />} />
           <Route path="/admin/data" element={<AdminRoute element={<AdminDataOverview />} />} />
 
-          <Route path="/superadmin/dashboard" element={<SuperAdminDashboard />} />
-<Route path="/superadmin/admins" element={<ManageAdmins />} />
-<Route path="/superadmin/admins/create" element={<CreateAdmin />} />
-<Route path="/superadmin/students" element={<StudentsList />} />
-<Route path="/superadmin/students/:id" element={<StudentProfile />} />
-<Route path="/superadmin/reports" element={<OverallReports />} />
+          {/* Superadmin Routes */}
+          <Route path="/superadmin/dashboard" element={<SuperAdminRoute element={<SuperAdminDashboard />} />} />
+          <Route path="/superadmin/admins" element={<SuperAdminRoute element={<ManageAdmins />} />} />
+          <Route path="/superadmin/admins/create" element={<SuperAdminRoute element={<CreateAdmin />} />} />
+          <Route path="/superadmin/students" element={<SuperAdminRoute element={<StudentsList />} />} />
+          <Route path="/superadmin/students/:id" element={<SuperAdminRoute element={<StudentProfile />} />} />
+          <Route path="/superadmin/reports" element={<SuperAdminRoute element={<OverallReports />} />} />
+          <Route path="/superadmin/allocation" element={<SuperAdminRoute element={<MentorAllocation />} />} />
 
           
         </Routes>

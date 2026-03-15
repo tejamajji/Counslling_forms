@@ -19,11 +19,12 @@ function StudentsList() {
       <button onClick={() => navigate("/superadmin/dashboard")} style={{ marginBottom: "10px" }}>Back to Dashboard</button>
       <h2>Students</h2>
       <table>
-        <thead><tr><th>Username</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Username</th><th>Email</th><th>Actions</th></tr></thead>
         <tbody>
           {students.map(s => (
             <tr key={s._id}>
-              <td>{s.username}</td>
+              <td>{s.username || 'N/A'}</td>
+              <td>{s.email || 'N/A'}</td>
               <td><Link to={`/superadmin/students/${s._id}`}>View</Link></td>
             </tr>
           ))}

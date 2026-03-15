@@ -1,4 +1,5 @@
 const express = require('express');
+
 const router = express.Router();
 const { authMiddleware, adminMiddleware } = require('../middlewares/authMiddleware');
 const User = require('../models/User');
@@ -14,22 +15,40 @@ const crypto = require('crypto');
  * @desc Get all users (Admin only) - optionally filter by role
  * @access Admin
  */
-router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/users', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { role } = req.query;
-    let query = {};
-    
-    // If role parameter is provided, filter by role
+    let query = { isDeleted: { $ne: true } };
+
+    // If an admin is requesting, only show users assigned to them
+    if (req.user.role === 'admin') {
+        query.assignedMentor = req.user._id;
+    }
     if (role) {
       query.role = role;
     }
+
+    const users = await User.find(query).select('-password').lean();
     
-    const users = await User.find(query).select('-password');
-    res.status(200).json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
+    // Calculate profileCompletion for each user
+    const usersWithProfiles = await Promise.all(users.map(async (u) => {
+      const profile = await Profile.findOne({ userId: u._id });
+      let pc = 0;
+      if (profile) {
+        const requiredFields = [
+          profile.name, profile.regdNo, profile.section, profile.mobileNumber, profile.email,
+          profile.admissionType, profile.caste, profile.rank, profile.dob, profile.bloodGroup,
+          profile.tenthMarks?.percentage, profile.interDiplomaMarks?.percentage,
+          profile.parentDetails?.name, profile.parentDetails?.address, profile.parentDetails?.occupation, profile.parentDetails?.contactNumber
+        ];
+        const answered = requiredFields.filter(f => f !== undefined && f !== null && String(f).trim() !== '').length;
+        pc = Math.round((answered / 16) * 100);
+      }
+      return { ...u, profileCompletion: pc };
+    }));
+
+    res.status(200).json(usersWithProfiles);
+  } catch (err) { next(err); }
 });
 
 /**
@@ -37,7 +56,7 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
  * @desc Create a new user (Admin only)
  * @access Admin
  */
-router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/users', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { username, email } = req.body;
 
@@ -53,11 +72,12 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
 
     // Create new user
     const newUser = new User({
-      username,
-      email,
-      password: hashedPassword,
-      role: 'user' // Default role for added students
-    });
+        username,
+        email,
+        password: hashedPassword,
+        role: 'user', // Default role for added students
+        assignedMentor: req.user.id
+      });
     await newUser.save();
 
     // Send email with credentials (optional - don't fail if email fails)
@@ -104,9 +124,7 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
         role: newUser.role
       }
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
@@ -115,16 +133,14 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res) => {
  * @desc Get user by ID (Admin only)
  * @access Admin
  */
-router.get('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/users/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     res.status(200).json(user);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
@@ -133,7 +149,7 @@ router.get('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
  * @desc Update user role (Admin only)
  * @access Admin
  */
-router.patch('/users/:id/role', authMiddleware, adminMiddleware, async (req, res) => {
+router.patch('/users/:id/role', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { role } = req.body;
     
@@ -152,9 +168,7 @@ router.patch('/users/:id/role', authMiddleware, adminMiddleware, async (req, res
     }
     
     res.status(200).json(user);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
@@ -163,7 +177,7 @@ router.patch('/users/:id/role', authMiddleware, adminMiddleware, async (req, res
  * @desc Delete user (Admin only)
  * @access Admin
  */
-router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     // First find the user to get their email
     const user = await User.findById(req.params.id);
@@ -173,19 +187,16 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) =>
     }
     
     // Delete the user
-    await User.findByIdAndDelete(req.params.id);
-    
+    await User.findByIdAndUpdate(req.params.id, { isDeleted: true });
+
     // Delete associated profile
-    await Profile.findOneAndDelete({ userId: req.params.id });
+    await Profile.findOneAndUpdate({ userId: req.params.id }, { isDeleted: true });
     
-    // Delete mentor grading and marks using email
-    await MentorGrading.findOneAndDelete({ email: user.email });
-    await Marks.findOneAndDelete({ email: user.email });
-    
-    res.status(200).json({ message: 'User and associated data deleted successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    // Mentor grading/marks can be kept or also soft deleted if we add the flag to those, 
+    // for now we just keep the base records soft-deleted.
+
+    res.status(200).json({ message: 'User and associated data soft-deleted successfully' });
+  } catch (err) { next(err);
   }
 });
 
@@ -194,13 +205,18 @@ router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) =>
  * @desc Get all profiles (Admin only)
  * @access Admin
  */
-router.get('/profiles', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/profiles', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const profiles = await Profile.find();
+    let profiles;
+    if (req.user.role === 'superadmin') {
+      profiles = await Profile.find();
+    } else {
+      const assignedUsers = await User.find({ assignedMentor: req.user._id }).select('_id');
+      const assignedIds = assignedUsers.map(u => u._id);
+      profiles = await Profile.find({ userId: { $in: assignedIds } });
+    }
     res.status(200).json(profiles);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
@@ -209,13 +225,18 @@ router.get('/profiles', authMiddleware, adminMiddleware, async (req, res) => {
  * @desc Get all mentor gradings (Admin only)
  * @access Admin
  */
-router.get('/mentorgradings', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/mentorgradings', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const mentorGradings = await MentorGrading.find();
+    let mentorGradings;
+    if (req.user.role === 'superadmin') {
+      mentorGradings = await MentorGrading.find();
+    } else {
+      const assignedUsers = await User.find({ assignedMentor: req.user._id }).select('email');
+      const assignedEmails = assignedUsers.map(u => u.email);
+      mentorGradings = await MentorGrading.find({ email: { $in: assignedEmails } });
+    }
     res.status(200).json(mentorGradings);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
   }
 });
 
@@ -224,14 +245,118 @@ router.get('/mentorgradings', authMiddleware, adminMiddleware, async (req, res) 
  * @desc Get all marks (Admin only)
  * @access Admin
  */
-router.get('/marks', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/marks', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const marks = await Marks.find();
+    let marks;
+    if (req.user.role === 'superadmin') {
+      marks = await Marks.find();
+    } else {
+      const assignedUsers = await User.find({ assignedMentor: req.user._id }).select('email');
+      const assignedEmails = assignedUsers.map(u => u.email);
+      marks = await Marks.find({ email: { $in: assignedEmails } });
+    }
     res.status(200).json(marks);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (err) { next(err);
+  }
+});
+
+
+// Notify student to complete profile
+router.post('/notify-profile/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const student = await User.findById(req.params.id);
+    if (!student) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+       return res.status(500).json({ error: 'Email configuration missing on server' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+
+    const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000/signup';
+
+    const mailOptions = {
+        to: student.email,
+        from: process.env.EMAIL_USER,
+        subject: 'Action Required: Complete Your Counseling Profile',
+        html: `
+          <h3>Hello ${student.username.toUpperCase()},</h3>
+          <p>You have been reminded by the Administration to complete your profile in the Counseling Dashboard.</p>
+          <p>Please log in and update your details as soon as possible.</p>
+          <p><a href="${loginUrl}">Click here to Login</a></p>
+          <br/>
+          <p>Thank you,</p>
+          <p>Administration</p>
+        `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.json({ message: 'Profile completion reminder sent successfully' });
+  } catch (error) {
+    console.error('Error sending profile notification:', error);
+    res.status(500).json({ error: 'Failed to send notification email' });
   }
 });
 
 module.exports = router;
+
+// Send Details (Email activation link to student)
+router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const student = await User.findById(req.params.id);
+    if (!student) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate reset token and set expiry
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+
+    // Save token to user
+    student.resetPasswordToken = resetToken;
+    student.resetPasswordExpiry = resetTokenExpiry;
+    await student.save();
+
+    // Create email transport
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+
+    const resetUrl = `http://localhost:3000/activate-account/${resetToken}`;
+
+    const mailOptions = {
+        to: student.email,
+        from: process.env.EMAIL_USER,
+        subject: 'Welcome to the Counseling Dashboard - Activate Your Account',
+        text: `Hello ${student.username.toUpperCase()},\n\n` +
+              `You have been invited to access the Counseling Dashboard.\n\n` +
+              `Your login username is your roll number: ${student.username}\n\n` +
+              `Please click on the following link, or paste it into your browser to activate your account and set up your initial password:\n\n` +
+              `${resetUrl}\n\n` +
+              `If you did not request this, please ignore this email.\n`
+    };
+
+    transporter.sendMail(mailOptions, (err, response) => {
+        if (err) {
+            console.error('There was an error sending the email: ', err);
+            return res.status(500).json({ error: 'Error sending email' });
+        }
+        res.status(200).json({ message: 'Activation email sent successfully!' });
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});

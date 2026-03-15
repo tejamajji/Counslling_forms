@@ -28,7 +28,7 @@ const errorResponse = (res, status, message) => {
  * @desc Get logged-in user's profile
  * @access Private
  */
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ userId: req.user.id })
       .populate('userId', 'username email'); // Populate basic user info
@@ -46,9 +46,7 @@ router.get("/", authMiddleware, async (req, res) => {
       hasProfile: true,
       profile: profile.toObject()
     });
-  } catch (err) {
-    console.error("Profile fetch error:", err);
-    return errorResponse(res, 500, "Server error while fetching profile");
+  } catch (err) { return next(err);
   }
 });
 
@@ -57,7 +55,7 @@ router.get("/", authMiddleware, async (req, res) => {
  * @desc Get profile by registration number
  * @access Private
  */
-router.get("/:regdNo", authMiddleware, async (req, res) => {
+router.get("/:regdNo", authMiddleware, async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ regdNo: req.params.regdNo })
       .populate('userId', 'username email');
@@ -70,9 +68,7 @@ router.get("/:regdNo", authMiddleware, async (req, res) => {
       success: true,
       profile
     });
-  } catch (err) {
-    console.error("Profile fetch by regdNo error:", err);
-    return errorResponse(res, 500, "Server error");
+  } catch (err) { return next(err);
   }
 });
 
@@ -81,15 +77,8 @@ router.get("/:regdNo", authMiddleware, async (req, res) => {
  * @desc Create a new profile
  * @access Private
  */
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", authMiddleware, async (req, res, next) => {
   try {
-    const requiredFields = ['name', 'regdNo', 'section', 'mobileNumber', 'email'];
-    const missingFields = requiredFields.filter(field => !req.body[field]);
-    
-    if (missingFields.length > 0) {
-      return errorResponse(res, 400, `Missing required fields: ${missingFields.join(', ')}`);
-    }
-
     // Check if profile already exists
     const existingProfile = await Profile.findOne({ 
       $or: [
@@ -140,7 +129,7 @@ router.post("/", authMiddleware, async (req, res) => {
  * @desc Update profile by ID
  * @access Private
  */
-router.put("/:id", authMiddleware, async (req, res) => {
+router.put("/:id", authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -183,7 +172,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
  * @desc Update profile using userId
  * @access Private
  */
-router.patch("/", authMiddleware, async (req, res) => {
+router.patch("/", authMiddleware, async (req, res, next) => {
   try {
     // Check restricted fields first
     const restrictedFields = ['userId', 'regdNo', 'email'];
@@ -223,7 +212,7 @@ router.patch("/", authMiddleware, async (req, res) => {
  * @desc Update attendance (Admin Only)
  * @access Admin
  */
-router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res) => {
+router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const { userId, semester, month, percentage } = req.body;
     
@@ -260,9 +249,7 @@ router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res) =>
       message: "Attendance updated successfully",
       attendance: profile.attendance
     });
-  } catch (err) {
-    console.error("Attendance update error:", err);
-    return errorResponse(res, 500, "Server error while updating attendance");
+  } catch (err) { return next(err);
   }
 });
 
@@ -271,7 +258,7 @@ router.patch("/attendance", authMiddleware, adminMiddleware, async (req, res) =>
  * @desc Delete user profile (Admin Only)
  * @access Admin
  */
-router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
+router.delete("/:id", authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const deletedProfile = await Profile.findByIdAndDelete(req.params.id);
     
@@ -283,9 +270,7 @@ router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
       success: true,
       message: "Profile deleted successfully"
     });
-  } catch (err) {
-    console.error("Profile deletion error:", err);
-    return errorResponse(res, 500, "Server error while deleting profile");
+  } catch (err) { return next(err);
   }
 });
 
