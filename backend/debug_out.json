@@ -1,0 +1,52 @@
+{
+  "totalMarks": 1,
+  "marksSample": [
+    {
+      "email": "muralijay360@gmail.com",
+      "semCount": 1
+    }
+  ],
+  "totalUsers": 69,
+  "usersSample": [
+    {
+      "username": "322103311041",
+      "email": "322103311041@gvpce.ac.in"
+    },
+    {
+      "username": "322103311042",
+      "email": "322103311042@gvpce.ac.in"
+    },
+    {
+      "username": "322103311043",
+      "email": "322103311043@gvpce.ac.in"
+    },
+    {
+      "username": "322103311044",
+      "email": "322103311044@gvpce.ac.in"
+    },
+    {
+      "username": "322103311045",
+      "email": "322103311045@gvpce.ac.in"
+    },
+    {
+      "username": "322103311046",
+      "email": "322103311046@gvpce.ac.in"
+    },
+    {
+      "username": "322103311047",
+      "email": "322103311047@gvpce.ac.in"
+    },
+    {
+      "username": "322103311048",
+      "email": "322103311048@gvpce.ac.in"
+    },
+    {
+      "username": "322103311049",
+      "email": "322103311049@gvpce.ac.in"
+    },
+    {
+      "username": "322103311050",
+      "email": "322103311050@gvpce.ac.in"
+    }
+  ]
+}

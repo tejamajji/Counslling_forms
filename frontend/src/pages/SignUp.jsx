@@ -80,7 +80,16 @@ const Auth = () => {
       setError("Passwords don't match");
       return;
     }
-  
+
+    // If signing up, ensure students use college domain email (e.g., 322103311030@gvpce.ac.in)
+    if (isSignUp) {
+      const studentEmailRegex = /^\d+@gvpce\.ac\.in$/i;
+      if (!studentEmailRegex.test(formData.email)) {
+        setError('Please use your college email (e.g. 322103311030@gvpce.ac.in)');
+        return;
+      }
+    }
+
     try {
       const body = isSignUp
         ? {

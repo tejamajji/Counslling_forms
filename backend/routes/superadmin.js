@@ -17,6 +17,14 @@ const transporter = nodemailer.createTransport({
 
 const getAdmissionPrefix = (rollNumber) => String(rollNumber || '').trim().slice(0, 3);
 
+const getRegistrationYear = (rollNumber) => {
+  const str = String(rollNumber || '').trim();
+  if (str.length < 3 || str[0] !== '3') return null;
+  const yearDigits = str.substring(1, 3);
+  if (!/^\d{2}$/.test(yearDigits)) return null;
+  return '20' + yearDigits;
+};
+
 const recalculateStudentYears = async () => {
   const students = await User.find({ role: 'user', isDeleted: { $ne: true } })
     .select('_id username yearOfStudy yearAssignmentMode')
@@ -355,7 +363,7 @@ router.delete("/admins/:id", authMiddleware, superAdminMiddleware, async (req, r
 router.get("/students", authMiddleware, superAdminMiddleware, async (req, res, next) => {
   try {
     // Get only users with role "user"
-    const students = await User.find({ role: "user" }).select('username email _id role assignedMentor');
+    const students = await User.find({ role: "user" }).select('username email _id role assignedMentor yearOfStudy');
     res.json(students);
   } catch (err) { next(err);
   }
@@ -364,48 +372,67 @@ router.get("/students", authMiddleware, superAdminMiddleware, async (req, res, n
 
 router.get("/reports", authMiddleware, superAdminMiddleware, async (req, res, next) => {
   try {
-    const className = req.query.class;
-    const { startDate, endDate } = req.query;
-    
-    let query = { role: "user", isDeleted: { $ne: true } };
+    const { registrationYear } = req.query;
 
-    if (className) {
-      const Profile = require("../models/Profile");
-      const profiles = await Profile.find({ section: new RegExp(className, "i"), isDeleted: { $ne: true } });
-      const userIds = profiles.map(p => p.userId);
-      query._id = { $in: userIds };
+    const Marks = require('../models/Semester');
+    const Profile = require('../models/Profile');
+
+    // Helper: extract registration year from regdNo (e.g. "322103311030" → "2022")
+    const getYearFromRegdNo = (regdNo) => {
+      const str = String(regdNo || '').trim();
+      if (str.length < 3 || str[0] !== '3') return null;
+      const digits = str.substring(1, 3);
+      if (!/^\d{2}$/.test(digits)) return null;
+      return '20' + digits;
+    };
+
+    // Step 1: Load all student profiles that have a regdNo
+    const allProfiles = await Profile.find(
+      { regdNo: { $exists: true, $ne: null }, isDeleted: { $ne: true } },
+      { regdNo: 1, userId: 1 }
+    ).lean();
+
+    // Step 2: Filter by registration year (derived from regdNo)
+    const matchedProfiles = registrationYear
+      ? allProfiles.filter(p => getYearFromRegdNo(p.regdNo) === registrationYear)
+      : allProfiles;
+
+    if (matchedProfiles.length === 0) {
+      return res.json([]);
     }
-    
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        let end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = end;
-      }
+
+    // Step 3: Get the login emails for the matched userIds
+    const userIds = matchedProfiles.map(p => p.userId);
+    const users = await User.find(
+      { _id: { $in: userIds }, role: 'user', isDeleted: { $ne: true } },
+      { _id: 1, email: 1 }
+    ).lean();
+
+    // Build maps for lookup
+    const userIdToEmail = {};
+    users.forEach(u => { userIdToEmail[String(u._id)] = u.email; });
+
+    const regdNoByEmail = {};
+    matchedProfiles.forEach(p => {
+      const email = userIdToEmail[String(p.userId)];
+      if (email) regdNoByEmail[email] = p.regdNo;
+    });
+
+    const emails = Object.keys(regdNoByEmail);
+    if (emails.length === 0) {
+      return res.json([]);
     }
 
-    let sortQuery = {};
-    if (req.query.sortBy) {
-       const [field, order] = req.query.sortBy.split('_');
-       sortQuery[field] = order === 'desc' ? -1 : 1;
-    }
+    // Step 4: Fetch marks for those emails
+    const marksData = await Marks.find({ email: { $in: emails } }).lean();
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
+    // Step 5: Attach the regdNo as registrationNumber in the response
+    const result = marksData.map(m => ({
+      ...m,
+      registrationNumber: regdNoByEmail[m.email] || m.email
+    }));
 
-    const User = require('../models/User');
-    const students = await User.find(query)
-      .sort(sortQuery)
-      .skip(skip)
-      .limit(limit)
-      .select('-password -__v -resetPasswordToken -resetPasswordExpires');
-      
-    res.json(students);
+    return res.json(result);
   } catch (err) {
     next(err);
   }
@@ -426,6 +453,17 @@ router.get("/mentors-with-students", authMiddleware, superAdminMiddleware, async
     } catch (err) { next(err); }
 });
 
+// Cleanup: Remove all soft-deleted students
+router.post("/cleanup/remove-deleted-students", authMiddleware, superAdminMiddleware, async (req, res, next) => {
+    try {
+        const result = await User.deleteMany({ role: 'user', isDeleted: true });
+        res.json({
+            message: `Permanently deleted ${result.deletedCount} soft-deleted student records`,
+            deletedCount: result.deletedCount
+        });
+    } catch (err) { next(err); }
+});
+
 // Get unassigned students
 router.get("/unassigned-students", authMiddleware, superAdminMiddleware, async (req, res, next) => {
     try {
@@ -437,7 +475,7 @@ router.get("/unassigned-students", authMiddleware, superAdminMiddleware, async (
                 { assignedMentor: null }
             ],
             isDeleted: { $ne: true }
-        }).select('username email _id');
+        }).select('username email _id yearOfStudy');
         res.json(students);
     } catch (err) { next(err); }
 });

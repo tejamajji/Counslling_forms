@@ -12,13 +12,11 @@ const AdminUserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
-  const [mentors, setMentors] = useState([]);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newYearOfStudy, setNewYearOfStudy] = useState('');
-  const [selectedMentorId, setSelectedMentorId] = useState('');
   const [smartStartRoll, setSmartStartRoll] = useState('');
   const [smartEndRoll, setSmartEndRoll] = useState('');
   const [smartDomain, setSmartDomain] = useState('gvpce.ac.in');
@@ -27,7 +25,6 @@ const AdminUserManagement = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [activeYear, setActiveYear] = useState('1');
   const [rollSearch, setRollSearch] = useState('');
-  const [mentorReassignMap, setMentorReassignMap] = useState({});
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [recalculateLoading, setRecalculateLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -76,11 +73,6 @@ const AdminUserManagement = () => {
         // Fetch users with role "user" only
         const usersRes = await apiClient.get('/api/admin/users?role=user', config);
         setUsers(usersRes.data);
-
-        if (role === 'superadmin') {
-          const mentorsRes = await apiClient.get('/api/superadmin/mentors-with-students', config);
-          setMentors(mentorsRes.data || []);
-        }
       } catch (err) {
         console.error('Error fetching users data:', err);
         setError('Failed to fetch data. Please try again.');
@@ -105,7 +97,6 @@ const AdminUserManagement = () => {
     setNewUsername('');
     setNewEmail('');
     setNewYearOfStudy('');
-    setSelectedMentorId('');
   };
 
   const handleAddStudent = async () => {
@@ -123,8 +114,7 @@ const AdminUserManagement = () => {
         {
           username: newUsername,
           email: newEmail || undefined,
-          yearOfStudy: newYearOfStudy || undefined,
-          mentorId: isSuperadmin ? selectedMentorId || undefined : undefined
+          yearOfStudy: newYearOfStudy || undefined
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -145,30 +135,6 @@ const AdminUserManagement = () => {
     }
   };
 
-  const handleReassignMentor = async (studentId) => {
-    const mentorId = mentorReassignMap[studentId];
-    if (!mentorId) {
-      setError('Please select a mentor before reassigning.');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('authToken');
-      await apiClient.post('/api/superadmin/assign-students', {
-        mentorId,
-        studentIds: [studentId]
-      }, { headers: { Authorization: `Bearer ${token}` } });
-
-      const usersRes = await apiClient.get('/api/admin/users?role=user', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUsers(usersRes.data);
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to reassign mentor.');
-    }
-  };
-
   const handleSmartCreate = async () => {
     if (!smartStartRoll.trim() || !smartEndRoll.trim()) {
       setError('Please provide start and end roll numbers for smart create');
@@ -185,8 +151,7 @@ const AdminUserManagement = () => {
           startRollNumber: smartStartRoll,
           endRollNumber: smartEndRoll,
           emailDomain: smartDomain,
-          yearOfStudy: smartYearOfStudy || undefined,
-          mentorId: isSuperadmin ? selectedMentorId || undefined : undefined
+          yearOfStudy: smartYearOfStudy || undefined
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -411,23 +376,6 @@ const AdminUserManagement = () => {
             <MenuItem value="3">3rd Year</MenuItem>
             <MenuItem value="4">4th Year</MenuItem>
           </TextField>
-          {isSuperadmin && (
-            <TextField
-              id="smart-mentor-id"
-              name="smartMentorId"
-              select
-              size="small"
-              label="Assign Mentor"
-              value={selectedMentorId}
-              onChange={(e) => setSelectedMentorId(e.target.value)}
-              sx={{ width: 220 }}
-            >
-              <MenuItem value="">No mentor selected</MenuItem>
-              {mentors.map((m) => (
-                <MenuItem key={m._id} value={m._id}>{m.username}</MenuItem>
-              ))}
-            </TextField>
-          )}
           <Button variant="contained" onClick={handleSmartCreate} disabled={smartCreateLoading}>
             {smartCreateLoading ? 'Creating...' : 'Smart Create'}
           </Button>
@@ -478,7 +426,6 @@ const AdminUserManagement = () => {
                 <TableCell><b>Email</b></TableCell>
                 <TableCell><b>Year</b></TableCell>
                 <TableCell><b>Profile Progress</b></TableCell>
-                {isSuperadmin && <TableCell><b>Mentor Reassignment</b></TableCell>}
                 <TableCell><b>Actions</b></TableCell>
               </TableRow>
             </TableHead>
@@ -506,27 +453,6 @@ const AdminUserManagement = () => {
                   <TableCell>
                     {user.profileCompletion !== undefined ? `${user.profileCompletion}%` : '0%'}
                   </TableCell>
-                  {isSuperadmin && (
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <TextField
-                          select
-                          size="small"
-                          value={mentorReassignMap[user._id] || ''}
-                          onChange={(e) => setMentorReassignMap(prev => ({ ...prev, [user._id]: e.target.value }))}
-                          sx={{ minWidth: 160 }}
-                        >
-                          <MenuItem value="">Select mentor</MenuItem>
-                          {mentors.map((m) => (
-                            <MenuItem key={m._id} value={m._id}>{m.username}</MenuItem>
-                          ))}
-                        </TextField>
-                        <Button size="small" variant="outlined" onClick={() => handleReassignMentor(user._id)}>
-                          Reassign
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  )}
                   <TableCell>
                                           {!user.hasLoggedIn && (
                         <Button
@@ -647,24 +573,6 @@ const AdminUserManagement = () => {
             <MenuItem value="3">3rd Year</MenuItem>
             <MenuItem value="4">4th Year</MenuItem>
           </TextField>
-          {isSuperadmin && (
-            <TextField
-              id="new-student-mentor-id"
-              name="newStudentMentorId"
-              select
-              margin="dense"
-              label="Assign Mentor"
-              fullWidth
-              variant="outlined"
-              value={selectedMentorId}
-              onChange={(e) => setSelectedMentorId(e.target.value)}
-            >
-              <MenuItem value="">No mentor selected</MenuItem>
-              {mentors.map((m) => (
-                <MenuItem key={m._id} value={m._id}>{m.username}</MenuItem>
-              ))}
-            </TextField>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAddDialog}>Cancel</Button>

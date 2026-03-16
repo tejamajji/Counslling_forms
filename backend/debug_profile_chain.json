@@ -1,0 +1,20 @@
+{
+  "totalProfiles": 32,
+  "matchedForYear2022": 31,
+  "sampleMatchedRegdNos": [
+    "32210344",
+    "322103311041",
+    "322103311042",
+    "322103311043",
+    "322103311044"
+  ],
+  "emailsResolved": 30,
+  "marksFound": 1,
+  "sampleMarks": [
+    {
+      "email": "majjiteja000@gmail.com",
+      "regdNo": "322103311030",
+      "sems": 1
+    }
+  ]
+}

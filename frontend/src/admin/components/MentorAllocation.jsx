@@ -1,48 +1,94 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Paper, Select, MenuItem, FormControl, InputLabel, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Grid, Checkbox, TablePagination } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Grid,
+  Checkbox,
+  TablePagination,
+  CircularProgress,
+  Alert,
+  Tabs,
+  Tab
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../apiClient';
 
 const MentorAllocation = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [mentors, setMentors] = useState([]);
   const [unassignedStudents, setUnassignedStudents] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
-  
   const [selectedMentor, setSelectedMentor] = useState('');
-  const [assignedCountToGive, setAssignedCountToGive] = useState(0);
-  
-  // 1st year (325), 2nd year (324), 3rd year (323), 4th year (322)
-  const [activeYear, setActiveYear] = useState('325'); // Use prefix defaults
-  const [assignedActiveYear, setAssignedActiveYear] = useState('325'); // For filtering assigned students
-  const [unassignedRollSearch, setUnassignedRollSearch] = useState('');
-  const [assignedRollSearch, setAssignedRollSearch] = useState('');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [allocationMode, setAllocationMode] = useState('manual');
   const [selectedStudents, setSelectedStudents] = useState([]);
-  const [unassignedPage, setUnassignedPage] = useState(0);
-  const [unassignedRowsPerPage, setUnassignedRowsPerPage] = useState(10);
-  const [assignedPage, setAssignedPage] = useState(0);
-  const [assignedRowsPerPage, setAssignedRowsPerPage] = useState(10);
+  const [randomCount, setRandomCount] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const years = [
+    { label: 'All Years', value: 'all' },
+    { label: 'Year 1', value: 1 },
+    { label: 'Year 2', value: 2 },
+    { label: 'Year 3', value: 3 },
+    { label: 'Year 4', value: 4 }
+  ];
 
   const fetchData = async () => {
+    console.debug('[MentorAllocation] fetchData called');
     try {
+      setLoading(true);
+      setError('');
       const token = localStorage.getItem('authToken');
-      if (!token) return navigate('/login');
-      
+      if (!token) {
+        setError('No authentication token found. Please log in again.');
+        navigate('/signup');
+        return;
+      }
+
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      
-      const [mentorRes, studentsRes] = await Promise.all([
+
+      const [mentorRes, unassignedRes, allRes] = await Promise.all([
         apiClient.get('/api/superadmin/mentors-with-students', config),
-        apiClient.get('/api/superadmin/unassigned-students', config)
+        apiClient.get('/api/superadmin/unassigned-students', config),
+        apiClient.get('/api/superadmin/students', config)
       ]);
 
       setMentors(mentorRes.data);
-      setUnassignedStudents(studentsRes.data);
-      
-      const assignedRes = await apiClient.get('/api/superadmin/students', config);
-      setAllStudents(assignedRes.data);
+      setUnassignedStudents(unassignedRes.data);
+      setAllStudents(allRes.data);
     } catch (err) {
-      console.error(err);
-      if (err.response && err.response.status === 401) navigate('/login');      
+      console.error('[MentorAllocation] Error fetching data:', err);
+      console.error('[MentorAllocation] Error response:', err.response);
+      if (err.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+        navigate('/signup');
+      } else if (err.response?.status === 403) {
+        setError('Access denied. Super admin privileges required.');
+        navigate('/dashboard');
+      } else {
+        setError(`Failed to load data: ${err.response?.data?.error || err.message || 'Unknown error'}`);
+      }
+      if (err.response?.status === 401 || err.response?.status === 403) navigate('/');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,317 +96,367 @@ const MentorAllocation = () => {
     fetchData();
   }, []);
 
-  // Filter students based on active year and optional roll-number search
-  const yearFilteredStudents = unassignedStudents.filter(s => s.username?.startsWith(activeYear));
-  const filteredStudents = yearFilteredStudents.filter((s) => {
-    const q = unassignedRollSearch.trim().toLowerCase();
-    return !q || s.username?.toLowerCase().includes(q);
+  const deriveYearFromRoll = (roll) => {
+    const prefix = String(roll || '').slice(0, 3);
+    if (!/^[0-9]{3}$/.test(prefix)) return undefined;
+    // Use second+third digit (e.g. 22 => 2022) and map to year 1..4 by rank
+    const year = Number(prefix.slice(1, 3));
+    if (Number.isNaN(year)) return undefined;
+    // Simple fallback: return 1..4 based on common admission prefixes (assuming valid range)
+    if (year > 0 && year <= 99) return ((year - 1) % 4) + 1;
+    return undefined;
+  };
+
+  // Filter unassigned students by selected year and search
+  const filteredStudents = unassignedStudents.filter(student => {
+    const studentYear = student.yearOfStudy || deriveYearFromRoll(student.username);
+    const matchesYear = selectedYear === 'all' || studentYear === selectedYear;
+    const matchesSearch = !searchQuery ||
+      student.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesYear && matchesSearch;
   });
-  const paginatedUnassignedStudents = filteredStudents.slice(
-    unassignedPage * unassignedRowsPerPage,
-    unassignedPage * unassignedRowsPerPage + unassignedRowsPerPage
+
+  const paginatedStudents = filteredStudents.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
   );
 
-  useEffect(() => {
-    setUnassignedPage(0);
-  }, [activeYear, unassignedRollSearch]);
+  // Filter assigned students for selected mentor and year
+  const assignedStudents = allStudents.filter(student => {
+    const studentYear = student.yearOfStudy || deriveYearFromRoll(student.username);
+    return student.assignedMentor === selectedMentor && (selectedYear === 'all' || studentYear === selectedYear);
+  });
 
-  useEffect(() => {
-    setAssignedPage(0);
-  }, [selectedMentor, assignedActiveYear, assignedRollSearch]);
+  const handleSelectStudent = (id) => {
+    setSelectedStudents(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked) => {
+    setSelectedStudents(checked ? filteredStudents.map(s => s._id) : []);
+  };
 
   const handleManualAssign = async () => {
-    if (!selectedMentor) return alert("Select a mentor first.");
-    if (selectedStudents.length === 0) return alert("Select at least one student.");
-    
+    if (!selectedMentor) {
+      setError('Please select a mentor first.');
+      return;
+    }
+    if (selectedStudents.length === 0) {
+      setError('Please select at least one student.');
+      return;
+    }
+
     try {
+      setLoading(true);
+      setError('');
       const token = localStorage.getItem('authToken');
       await apiClient.post('/api/superadmin/assign-students', {
         mentorId: selectedMentor,
         studentIds: selectedStudents
       }, { headers: { Authorization: `Bearer ${token}` } });
-      
-      alert(`Success! Assigned ${selectedStudents.length} students.`);
+
+      setSuccess(`Successfully assigned ${selectedStudents.length} students.`);
       setSelectedStudents([]);
-      setAssignedCountToGive(0);
+      setSearchQuery('');
       fetchData();
     } catch (err) {
       console.error(err);
-      alert("Error assigning students");
+      setError('Failed to assign students. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRandomAssign = async () => {
-    if (!selectedMentor) return alert("Select a mentor first.");
-    const count = parseInt(assignedCountToGive);
-    if (!count || count <= 0) return alert("Enter valid number of slots.");
-    
-     if (yearFilteredStudents.length < count) {
-       return alert(`Only ${yearFilteredStudents.length} students available in this year. Select fewer.`);
+    if (!selectedMentor) {
+      setError('Please select a mentor first.');
+      return;
+    }
+    const count = parseInt(randomCount);
+    if (!count || count <= 0) {
+      setError('Please enter a valid number of students.');
+      return;
+    }
+    if (count > filteredStudents.length) {
+      setError(`Only ${filteredStudents.length} students available for Year ${selectedYear}.`);
+      return;
     }
 
-    // Pick 'count' random students from the filtered list
-     const shuffled = [...yearFilteredStudents].sort(() => 0.5 - Math.random());
-    const selectedList = shuffled.slice(0, count).map(s => s._id);
-
     try {
+      setLoading(true);
+      setError('');
+      const shuffled = [...filteredStudents].sort(() => 0.5 - Math.random());
+      const selectedIds = shuffled.slice(0, count).map(s => s._id);
+
       const token = localStorage.getItem('authToken');
       await apiClient.post('/api/superadmin/assign-students', {
         mentorId: selectedMentor,
-        studentIds: selectedList
+        studentIds: selectedIds
       }, { headers: { Authorization: `Bearer ${token}` } });
-      
-      alert(`Successfully distributed ${count} random students to the mentor!`);
-      setSelectedStudents([]);
-      setAssignedCountToGive(0);
+
+      setSuccess(`Successfully randomly assigned ${count} students.`);
+      setRandomCount('');
       fetchData();
     } catch (err) {
       console.error(err);
-      alert("Error assigning students");
+      setError('Failed to assign students. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
+
   const handleUnassign = async (studentId) => {
     if (!window.confirm('Are you sure you want to unassign this student?')) return;
+
     try {
+      setLoading(true);
       const token = localStorage.getItem('authToken');
       await apiClient.post('/api/superadmin/unassign-students', {
         studentIds: [studentId]
       }, { headers: { Authorization: `Bearer ${token}` } });
 
-      alert('Student unassigned successfully!');
+      setSuccess('Student unassigned successfully.');
       fetchData();
     } catch (err) {
       console.error(err);
-      alert('Error unassigning student');
+      setError('Failed to unassign student. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
-  const handleSelectStudent = (id) => {
-    if (selectedStudents.includes(id)) {
-      setSelectedStudents(selectedStudents.filter(s => s !== id));
-    } else {
-      setSelectedStudents([...selectedStudents, id]);
-    }
-  };
+
+  if (loading && mentors.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ padding: '20px', maxWidth: '1200px', margin: 'auto' }}>
-      <Typography variant="h4" gutterBottom>Mentor Allocation (HOD)</Typography>
-      <Button onClick={() => navigate('/superadmin/dashboard')} variant="outlined" sx={{ mb: 2 }}>Back to Dashboard</Button>
+    <Box sx={{ padding: 3, maxWidth: '1400px', margin: 'auto' }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
+        Mentor Allocation Dashboard
+      </Typography>
+      <Button
+        onClick={() => navigate('/superadmin/dashboard')}
+        variant="outlined"
+        sx={{ mb: 3 }}
+      >
+        Back to Dashboard
+      </Button>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
       <Grid container spacing={3}>
-        {/* Mentor Selection Box */}
+        {/* Mentor Selection and Assigned Students */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">1. Select Mentor</Typography>
-            <FormControl fullWidth sx={{ mt: 2 }}>
+          <Paper sx={{ p: 3, height: 'fit-content' }}>
+            <Typography variant="h6" gutterBottom>
+              1. Select Mentor
+            </Typography>
+            <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel>Mentor</InputLabel>
               <Select
                 value={selectedMentor}
                 label="Mentor"
                 onChange={(e) => setSelectedMentor(e.target.value)}
               >
-                {mentors.map(m => (
-                  <MenuItem key={m._id} value={m._id}>
-                    {m.username} (Assigned: {m.assignedStudentsCount})
+                {mentors.map(mentor => (
+                  <MenuItem key={mentor._id} value={mentor._id}>
+                    {mentor.username} ({mentor.assignedStudentsCount} students)
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
 
-            <Box sx={{ mt: 4 }}>
-              <Typography variant="subtitle1">Random Assignment Options</Typography>
-              <TextField 
-                fullWidth 
-                type="number" 
-                label="Slots / No. of students" 
-                sx={{ mt: 2 }}
-                value={assignedCountToGive}
-                onChange={(e) => setAssignedCountToGive(e.target.value)}
-              />
-              <Button 
-                variant="contained" 
-                color="secondary" 
-                fullWidth 
-                sx={{ mt: 2 }}
-                onClick={handleRandomAssign}
-              >
-                Random Assign {assignedCountToGive || 0} Students
-              </Button>
-            </Box>
-
-            {/* Show Assigned Students for selected mentor */}
             {selectedMentor && (
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="subtitle1" color="success.main" gutterBottom>
-                  Currently Assigned Students:
+              <>
+                <Typography variant="h6" gutterBottom>
+                  Assigned Students {selectedYear === 'all' ? '(All Years)' : `(Year ${selectedYear})`}
                 </Typography>
-                
-                <Box sx={{ display: 'flex', gap: 1, my: 1 }}>
-                  <Button size="small" variant={assignedActiveYear === '325' ? 'contained' : 'outlined'} onClick={() => setAssignedActiveYear('325')}>1st Year</Button>
-                  <Button size="small" variant={assignedActiveYear === '324' ? 'contained' : 'outlined'} onClick={() => setAssignedActiveYear('324')}>2nd Year</Button>
-                  <Button size="small" variant={assignedActiveYear === '323' ? 'contained' : 'outlined'} onClick={() => setAssignedActiveYear('323')}>3rd Year</Button>
-                  <Button size="small" variant={assignedActiveYear === '322' ? 'contained' : 'outlined'} onClick={() => setAssignedActiveYear('322')}>4th Year</Button>
-                </Box>
-                <TextField
-                  size="small"
-                  label="Search by Roll Number"
-                  value={assignedRollSearch}
-                  onChange={(e) => setAssignedRollSearch(e.target.value)}
-                  sx={{ my: 1, width: '100%' }}
-                />
-
-                {(() => {
-                   const mentorStudents = allStudents.filter(s => s.assignedMentor === selectedMentor);
-                   const filteredMentorStudents = mentorStudents.filter((s) => {
-                     const byYear = s.username?.startsWith(assignedActiveYear);
-                     const q = assignedRollSearch.trim().toLowerCase();
-                     const bySearch = !q || s.username?.toLowerCase().includes(q);
-                     return byYear && bySearch;
-                   });
-                   const paginatedMentorStudents = filteredMentorStudents.slice(
-                     assignedPage * assignedRowsPerPage,
-                     assignedPage * assignedRowsPerPage + assignedRowsPerPage
-                   );
-                   return (
-                     <>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                           {filteredMentorStudents.length} students assigned in this year (Total: {mentorStudents.length})
+                <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                  {assignedStudents.length > 0 ? (
+                    assignedStudents.map(student => (
+                      <Box
+                        key={student._id}
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          p: 1,
+                          borderBottom: '1px solid #eee'
+                        }}
+                      >
+                        <Typography variant="body2">
+                          {student.username} - {student.email}
                         </Typography>
-                        <TableContainer component={Paper} sx={{ maxHeight: 300 }}>
-                          <Table size="small" stickyHeader>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Roll No.</TableCell>
-                                <TableCell align="right">Action</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {paginatedMentorStudents.map(student => (
-                                <TableRow key={student._id}>
-                                  <TableCell>{student.username}</TableCell>
-                                  <TableCell align="right">
-                                    <Button 
-                                      size="small" 
-                                      color="error" 
-                                      onClick={() => handleUnassign(student._id)}
-                                    >
-                                      Unassign
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                              {filteredMentorStudents.length === 0 && (
-                                <TableRow>
-                                  <TableCell colSpan={2} align="center">No students assigned for this year</TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                          <TablePagination
-                            component="div"
-                            count={filteredMentorStudents.length}
-                            page={assignedPage}
-                            onPageChange={(_, newPage) => setAssignedPage(newPage)}
-                            rowsPerPage={assignedRowsPerPage}
-                            onRowsPerPageChange={(e) => {
-                              setAssignedRowsPerPage(parseInt(e.target.value, 10));
-                              setAssignedPage(0);
-                            }}
-                            rowsPerPageOptions={[10, 25, 50]}
-                          />
-                        </TableContainer>
-                     </>
-                   )
-                })()}
-              </Box>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => handleUnassign(student._id)}
+                        >
+                          Unassign
+                        </Button>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No students assigned {selectedYear === 'all' ? 'in any year' : `for Year ${selectedYear}`}
+                    </Typography>
+                  )}
+                </Box>
+              </>
             )}
           </Paper>
         </Grid>
 
+        {/* Allocation Modes */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">2. Select Student Pool</Typography>
-
-            <Box sx={{ display: 'flex', gap: 1, my: 2 }}>
-              <Button variant={activeYear === '325' ? 'contained' : 'outlined'} onClick={() => setActiveYear('325')}>1st Year</Button>
-              <Button variant={activeYear === '324' ? 'contained' : 'outlined'} onClick={() => setActiveYear('324')}>2nd Year</Button>
-              <Button variant={activeYear === '323' ? 'contained' : 'outlined'} onClick={() => setActiveYear('323')}>3rd Year</Button>
-              <Button variant={activeYear === '322' ? 'contained' : 'outlined'} onClick={() => setActiveYear('322')}>4th Year</Button>
-            </Box>
-
-            <TextField
-              size="small"
-              label="Search by Roll Number"
-              value={unassignedRollSearch}
-              onChange={(e) => setUnassignedRollSearch(e.target.value)}
-              sx={{ mb: 2, width: '320px' }}
-            />
-
-            <Typography variant="subtitle1" color="primary">
-              Unassigned Students in this Year: {filteredStudents.length}
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              2. Select Year and Allocation Mode
             </Typography>
 
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, mb: 1 }}>
-              <Typography variant="body2">Select specific students or use the random assign on the left.</Typography>
-              <Button 
-                 variant="contained" 
-                 color="primary" 
-                 onClick={handleManualAssign}
-                 disabled={selectedStudents.length === 0}
-              >
-                Manual Assign ({selectedStudents.length})
-              </Button>
+            {/* Year Selection */}
+            <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+              {years.map(year => (
+                <Button
+                  key={year.value}
+                  variant={selectedYear === year.value ? 'contained' : 'outlined'}
+                  onClick={() => setSelectedYear(year.value)}
+                  sx={{ minWidth: 100 }}
+                >
+                  {year.label}
+                </Button>
+              ))}
             </Box>
 
-            <TableContainer sx={{ maxHeight: 400 }}>
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox 
-                        onChange={(e) => {
-                          if(e.target.checked) setSelectedStudents(filteredStudents.map(s => s._id));
-                          else setSelectedStudents([]);
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>Roll Number (Username)</TableCell>
-                    <TableCell>Email</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginatedUnassignedStudents.map(student => (
-                    <TableRow key={student._id}>
-                      <TableCell padding="checkbox">
-                        <Checkbox 
-                           checked={selectedStudents.includes(student._id)}
-                           onChange={() => handleSelectStudent(student._id)}
-                        />
-                      </TableCell>
-                      <TableCell>{student.username}</TableCell>
-                      <TableCell>{student.email}</TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredStudents.length === 0 && (
-                    <TableRow>
-                       <TableCell colSpan={3} align="center">No unassigned students left for this year.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-              <TablePagination
-                component="div"
-                count={filteredStudents.length}
-                page={unassignedPage}
-                onPageChange={(_, newPage) => setUnassignedPage(newPage)}
-                rowsPerPage={unassignedRowsPerPage}
-                onRowsPerPageChange={(e) => {
-                  setUnassignedRowsPerPage(parseInt(e.target.value, 10));
-                  setUnassignedPage(0);
-                }}
-                rowsPerPageOptions={[10, 25, 50]}
-              />
-            </TableContainer>
+            {/* Allocation Mode Tabs */}
+            <Tabs
+              value={allocationMode}
+              onChange={(_, newValue) => setAllocationMode(newValue)}
+              sx={{ mb: 3 }}
+            >
+              <Tab label="Manual Allocation" value="manual" />
+              <Tab label="Random Allocation" value="random" />
+            </Tabs>
+
+            {allocationMode === 'manual' ? (
+              <>
+                {/* Search */}
+                <TextField
+                  fullWidth
+                  label="Search by roll number or email"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+
+                {/* Student List */}
+                <Typography variant="subtitle1" gutterBottom>
+                  Unassigned Students (Year {selectedYear}): {filteredStudents.length}
+                </Typography>
+
+                {filteredStudents.length === 0 ? (
+                  <Alert severity="info">No unassigned students found for Year {selectedYear}</Alert>
+                ) : (
+                  <>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="body2">
+                        Selected: {selectedStudents.length} students
+                      </Typography>
+                      <Button
+                        variant="contained"
+                        onClick={handleManualAssign}
+                        disabled={selectedStudents.length === 0 || loading}
+                      >
+                        Allocate Selected ({selectedStudents.length})
+                      </Button>
+                    </Box>
+
+                    <TableContainer sx={{ maxHeight: 400 }}>
+                      <Table stickyHeader size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell padding="checkbox">
+                              <Checkbox
+                                checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0}
+                                indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredStudents.length}
+                                onChange={(e) => handleSelectAll(e.target.checked)}
+                              />
+                            </TableCell>
+                            <TableCell>Name</TableCell>
+                            <TableCell>Roll Number</TableCell>
+                            <TableCell>Section</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {paginatedStudents.map(student => (
+                            <TableRow key={student._id}>
+                              <TableCell padding="checkbox">
+                                <Checkbox
+                                  checked={selectedStudents.includes(student._id)}
+                                  onChange={() => handleSelectStudent(student._id)}
+                                />
+                              </TableCell>
+                              <TableCell>{student.username}</TableCell>
+                              <TableCell>{student.email.split('@')[0]}</TableCell>
+                              <TableCell>{student.profile?.section || 'N/A'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+
+                    <TablePagination
+                      component="div"
+                      count={filteredStudents.length}
+                      page={page}
+                      onPageChange={(_, newPage) => setPage(newPage)}
+                      rowsPerPage={rowsPerPage}
+                      onRowsPerPageChange={(e) => {
+                        setRowsPerPage(parseInt(e.target.value, 10));
+                        setPage(0);
+                      }}
+                      rowsPerPageOptions={[10, 25, 50]}
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Random Allocation */}
+                <Typography variant="subtitle1" gutterBottom>
+                  Random Allocation for Year {selectedYear}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Available students: {filteredStudents.length}
+                </Typography>
+
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Number of Students to Allocate"
+                  value={randomCount}
+                  onChange={(e) => setRandomCount(e.target.value)}
+                  sx={{ mb: 2 }}
+                  inputProps={{ min: 1, max: filteredStudents.length }}
+                />
+
+                <Button
+                  variant="contained"
+                  onClick={handleRandomAssign}
+                  disabled={!randomCount || loading || !selectedMentor}
+                  fullWidth
+                >
+                  Random Allocate {randomCount || 0} Students
+                </Button>
+              </>
+            )}
           </Paper>
         </Grid>
       </Grid>

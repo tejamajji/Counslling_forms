@@ -6,6 +6,7 @@ function StudentsList() {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [rollSearch, setRollSearch] = useState('');
+  const [regYearFilter, setRegYearFilter] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -17,27 +18,62 @@ function StudentsList() {
     .catch(err => console.error(err));
   }, []);
 
+  const getRegistrationYear = (email) => {
+    if (!email) return null;
+    const prefix = email.split('@')[0] || '';
+    // Expect roll number format like 322103311030, where the registration year is the 2nd+3rd digits (e.g. 22 => 2022)
+    if (/^\d{3,}/.test(prefix)) {
+      const yearDigits = prefix.slice(1, 3);
+      return `20${yearDigits}`;
+    }
+    return null;
+  };
+
+  const availableYears = Array.from(
+    new Set(students.map((s) => getRegistrationYear(s.email)).filter(Boolean))
+  ).sort();
+
   const filteredStudents = students.filter((s) => {
     const q = rollSearch.trim().toLowerCase();
-    return !q || s.username?.toLowerCase().includes(q);
+    const matchesSearch = !q || s.username?.toLowerCase().includes(q);
+
+    if (!matchesSearch) return false;
+
+    if (!regYearFilter) return true;
+
+    const studentYear = getRegistrationYear(s.email);
+    return studentYear === regYearFilter;
   });
+
   const paginatedStudents = filteredStudents.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   useEffect(() => {
     setPage(0);
-  }, [rollSearch]);
+  }, [rollSearch, regYearFilter]);
 
   return (
     <div>
       <button onClick={() => navigate("/superadmin/dashboard")} style={{ marginBottom: "10px" }}>Back to Dashboard</button>
       <h2>Students</h2>
-      <input
-        type="text"
-        placeholder="Search by Roll Number"
-        value={rollSearch}
-        onChange={(e) => setRollSearch(e.target.value)}
-        style={{ marginBottom: '10px', padding: '6px', width: '260px' }}
-      />
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+        <input
+          type="text"
+          placeholder="Search by name or roll number"
+          value={rollSearch}
+          onChange={(e) => setRollSearch(e.target.value)}
+          style={{ padding: '6px', width: '260px' }}
+        />
+        <select
+          value={regYearFilter}
+          onChange={(e) => setRegYearFilter(e.target.value)}
+          style={{ padding: '6px', width: '200px' }}
+        >
+          <option value="">All registration years</option>
+          {availableYears.map((year) => (
+            <option key={year} value={year}>{year}</option>
+          ))}
+        </select>
+      </div>
       <table>
         <thead><tr><th>Username</th><th>Email</th><th>Actions</th></tr></thead>
         <tbody>

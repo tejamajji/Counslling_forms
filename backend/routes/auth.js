@@ -8,10 +8,18 @@ const { authMiddleware } = require('../middlewares/authMiddleware');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
+// Define allowed student email pattern
+const studentEmailRegex = /^\d+@gvpce\.ac\.in$/i;
+
 // Signup
 router.post('/signup', async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
+
+    // Ensure students sign up using the college email domain
+    if (!studentEmailRegex.test(email)) {
+      return res.status(400).json({ error: 'Students must sign up with a valid @gvpce.ac.in email' });
+    }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'Email already exists' });
@@ -48,6 +56,11 @@ router.post('/signin', async (req, res, next) => {
     // Check if user exists
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Only allow college-domain logins for students (role: user)
+    if (user.role === 'user' && !studentEmailRegex.test(user.email)) {
+      return res.status(400).json({ error: 'Students must log in with a valid @gvpce.ac.in email' });
+    }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -129,6 +142,11 @@ router.post('/forgot-password', async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ error: 'User not found with this email' });
+    }
+
+    // Ensure student accounts use college domain emails
+    if (user.role === 'user' && !studentEmailRegex.test(user.email)) {
+      return res.status(400).json({ error: 'Students must use a valid @gvpce.ac.in email' });
     }
     
     // Generate reset token and set expiry

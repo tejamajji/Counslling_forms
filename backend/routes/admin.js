@@ -197,14 +197,7 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res, next) =>
       return res.status(400).json({ error: 'Username (roll number) is required' });
     }
 
-    let assignedMentorId = req.user.id;
-    if (req.user.role === 'superadmin' && mentorId) {
-      const mentor = await User.findById(mentorId);
-      if (!mentor || mentor.role !== 'admin') {
-        return res.status(400).json({ error: 'Invalid mentor selected' });
-      }
-      assignedMentorId = mentorId;
-    }
+    let assignedMentorId = undefined; // Students are created unassigned, mentors assigned via dedicated allocation page
 
     const existingActiveUser = await User.findOne({
       $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
@@ -256,7 +249,7 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res, next) =>
         password: hashedPassword,
         role: 'user', // Default role for added students
         assignedMentor: assignedMentorId,
-        yearOfStudy: normalizedYearOfStudy,
+        yearOfStudy: normalizedYearOfStudy || 1, // Default to year 1 if not specified
         yearAssignmentMode: normalizedYearOfStudy ? 'manual' : 'auto'
       });
     await newUser.save();
@@ -323,14 +316,7 @@ router.post('/users/smart-create', authMiddleware, adminMiddleware, async (req, 
       return res.status(400).json({ error: 'Please create at most 500 students per request' });
     }
 
-    let assignedMentorId = req.user.id;
-    if (req.user.role === 'superadmin' && mentorId) {
-      const mentor = await User.findById(mentorId);
-      if (!mentor || mentor.role !== 'admin') {
-        return res.status(400).json({ error: 'Invalid mentor selected' });
-      }
-      assignedMentorId = mentorId;
-    }
+    let assignedMentorId = undefined; // Students are created unassigned, mentors assigned via dedicated allocation page
 
     const domain = (emailDomain && String(emailDomain).trim()) || 'gvpce.ac.in';
     const created = [];
@@ -377,7 +363,7 @@ router.post('/users/smart-create', authMiddleware, adminMiddleware, async (req, 
         password: hashedPassword,
         role: 'user',
         assignedMentor: assignedMentorId,
-        yearOfStudy: normalizedYearOfStudy,
+        yearOfStudy: normalizedYearOfStudy || 1, // Default to year 1 if not specified
         yearAssignmentMode: normalizedYearOfStudy ? 'manual' : 'auto'
       });
       await newUser.save();
