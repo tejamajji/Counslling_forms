@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/admin');
 const semesterRoutes = require('./routes/semester');
 const mentorGradingRouter = require('./routes/mentorGradingSchema');
 const superAdminRoutes = require("./routes/superadmin");
+const principalRoutes = require("./routes/principal");
 
 
 dotenv.config();
@@ -61,6 +62,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/mentorGrading', mentorGradingRouter);
 
 app.use("/api/superadmin", superAdminRoutes);
+app.use("/api/principal", principalRoutes);
 
 // Centralized Error Handler Middleware
 app.use((err, req, res, next) => {

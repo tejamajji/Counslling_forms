@@ -17,7 +17,7 @@ const UserSchema = new mongoose.Schema({
   role: { 
     type: String, 
     default: 'user',
-    enum: ['user', 'admin', 'mentor','superadmin']
+    enum: ['user', 'admin', 'mentor','superadmin', 'principal']
   },
   // Add these fields for password reset
   resetPasswordToken: String,
@@ -33,6 +33,10 @@ const UserSchema = new mongoose.Schema({
   assignedMentor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  departmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department'
   },
   yearOfStudy: {
     type: Number,

@@ -62,9 +62,19 @@ const superAdminMiddleware = (req, res, next) => {
   }
 };
 
+// Principal middleware
+const principalMiddleware = (req, res, next) => {
+  if (req.user && req.user.role === "principal") {
+    next();
+  } else {
+    return res.status(403).json({ error: "Principal access required" });
+  }
+};
+
 module.exports = {
   authMiddleware,
   adminMiddleware,
   mentorMiddleware,
-  superAdminMiddleware
+  superAdminMiddleware,
+  principalMiddleware
 };

@@ -111,7 +111,7 @@ const softDeleteRoleUser = async (roleUserId, actingUserId) => {
 router.get('/management-users', authMiddleware, superAdminMiddleware, async (req, res, next) => {
   try {
     const users = await User.find({
-      role: { $in: ['admin', 'superadmin'] },
+      role: 'admin',
       isDeleted: { $ne: true }
     })
       .select('_id username email role hasLoggedIn createdAt')
