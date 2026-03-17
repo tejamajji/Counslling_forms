@@ -8,7 +8,7 @@ const Dashboard = () => {
     name: '', 
     email: '', 
     profilePicture: '',
-    role: '', profileCompletion: 0 });
+    role: '', profileCompletion: 0, assignedMentor: null });
 
   useEffect(() => {
     const fetchUserDetails = async () => {
@@ -32,7 +32,7 @@ const Dashboard = () => {
           name: response.data.username || 'User',
           email: response.data.email || 'Not Available',
           profilePicture: response.data.profilePicture || '',
-          role: response.data.role || 'user', profileCompletion: response.data.profileCompletion || 0 });
+          role: response.data.role || 'user', profileCompletion: response.data.profileCompletion || 0, assignedMentor: response.data.assignedMentor });
       } catch (error) {
         console.error('Error fetching user details:', error);
         if (error.response?.status === 401) {
@@ -74,6 +74,9 @@ const Dashboard = () => {
           <p><strong>🎓 Role:</strong> {user.role === 'user' ? 'Student' : user.role === 'admin' ? 'Admin' : user.role === 'superadmin' ? 'Super Admin' : user.role}</p>
           <p><strong>📊 Profile Score:</strong> {user.profileCompletion}% Complete</p>
           <p><strong>🛡️ Account:</strong> Active</p>
+          {user.assignedMentor && (
+            <p><strong>👨‍🏫 Assigned Mentor:</strong> {user.assignedMentor.username} ({user.assignedMentor.email})</p>
+          )}
         </div>
       </div>
 
@@ -88,10 +91,6 @@ const Dashboard = () => {
           <button onClick={handleLogout} style={styles.button}>Log Out</button>
           <button onClick={() => navigate('/profile')} style={styles.buttonSecondary}>My Profile</button>
           <button onClick={() => navigate('/semester')} style={styles.buttonTertiary}>Semester Marks</button>
-          <button onClick={() => navigate('/mentorgrade')} style={{
-            ...styles.button,
-            backgroundColor: '#4CAF50',
-          }}>Mentor Grading</button>
           
           {user.role === 'admin' && (
             <button onClick={() => navigate('/admin')} style={{

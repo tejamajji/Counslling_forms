@@ -197,7 +197,7 @@ router.post('/users', authMiddleware, adminMiddleware, async (req, res, next) =>
       return res.status(400).json({ error: 'Username (roll number) is required' });
     }
 
-    let assignedMentorId = undefined; // Students are created unassigned, mentors assigned via dedicated allocation page
+    let assignedMentorId = null; // Students are created unassigned, mentors assigned via dedicated allocation page
 
     const existingActiveUser = await User.findOne({
       $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
@@ -316,7 +316,7 @@ router.post('/users/smart-create', authMiddleware, adminMiddleware, async (req, 
       return res.status(400).json({ error: 'Please create at most 500 students per request' });
     }
 
-    let assignedMentorId = undefined; // Students are created unassigned, mentors assigned via dedicated allocation page
+    let assignedMentorId = null; // Students are created unassigned, mentors assigned via dedicated allocation page
 
     const domain = (emailDomain && String(emailDomain).trim()) || 'gvpce.ac.in';
     const created = [];
@@ -613,13 +613,15 @@ router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, re
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Generate reset token and set expiry
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+    // Generate a temporary password
+    const tempPassword = crypto.randomBytes(8).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    // Save token to user
-    student.resetPasswordToken = resetToken;
-    student.resetPasswordExpiry = resetTokenExpiry;
+    // Update user with temp password and reset hasLoggedIn
+    student.password = hashedPassword;
+    student.hasLoggedIn = false;
+    student.resetPasswordToken = undefined;
+    student.resetPasswordExpiry = undefined;
     await student.save();
 
     // Create email transport
@@ -631,17 +633,17 @@ router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, re
       }
     });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/activate-account/${resetToken}`;
-
     const mailOptions = {
         to: student.email,
         from: process.env.EMAIL_USER,
-        subject: 'Welcome to the Counseling Dashboard - Activate Your Account',
+        subject: 'Your Counseling Dashboard Login Details',
         text: `Hello ${student.username.toUpperCase()},\n\n` +
-              `You have been invited to access the Counseling Dashboard.\n\n` +
-              `Your login username is your roll number: ${student.username}\n\n` +
-              `Please click on the following link, or paste it into your browser to activate your account and set up your initial password:\n\n` +
-              `${resetUrl}\n\n` +
+              `You have been registered for the Counseling Dashboard.\n\n` +
+              `Your login details are:\n` +
+              `Email: ${student.email}\n` +
+              `Username: ${student.username}\n` +
+              `Temporary Password: ${tempPassword}\n\n` +
+              `Please log in and change your password immediately.\n\n` +
               `If you did not request this, please ignore this email.\n`
     };
 
@@ -650,7 +652,7 @@ router.post('/send-details/:id', authMiddleware, adminMiddleware, async (req, re
             console.error('There was an error sending the email: ', err);
             return res.status(500).json({ error: 'Error sending email' });
         }
-        res.status(200).json({ message: 'Activation email sent successfully!' });
+        res.status(200).json({ message: 'Login details sent successfully!' });
     });
 
   } catch (err) {

@@ -122,7 +122,8 @@ router.get('/user', authMiddleware, async (req, res, next) => {
       hasProfile: !!profile,
       profilePicture: profile?.profilePicture || null,
       profileCompletion: profileCompletion || 0,
-      isNewUser: user.isNewUser || false  // Include new user status
+      isNewUser: user.isNewUser || false,  // Include new user status
+      assignedMentor: user.role === 'user' && user.assignedMentor ? await User.findById(user.assignedMentor).select('username email') : null
     });
   } catch (err) { next(err);
   }

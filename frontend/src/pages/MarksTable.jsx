@@ -76,8 +76,8 @@ const MarksTable = () => {
         if (err.response?.status === 404) {
           setUpdatedMarks(subjectList[selectedSemester].map(subject => ({
             subject,
-            mid1: 0,
-            mid2: 0,
+            mid1: '',
+            mid2: '',
             ext: "A+"
           })));
           setIsNewEntry(true);
@@ -98,10 +98,8 @@ const MarksTable = () => {
     if (field === "ext") {
       updated[index] = { ...updated[index], [field]: value };
     } else {
-      updated[index] = {
-        ...updated[index],
-        [field]: Math.min(30, Math.max(0, Number(value)))
-      };
+      const numValue = value === '' ? '' : Math.min(30, Math.max(0, Number(value)));
+      updated[index] = { ...updated[index], [field]: numValue };
     }
     setUpdatedMarks(updated);
   };
